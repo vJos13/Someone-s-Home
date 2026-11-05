@@ -1,0 +1,52 @@
+# ── Unity: carpetas generadas (NUNCA subir) ──
+/[Ll]ibrary/
+/[Tt]emp/
+/[Oo]bj/
+/[Bb]uild/
+/[Bb]uilds/
+/[Ll]ogs/
+/[Uu]ser[Ss]ettings/
+/[Mm]emoryCaptures/
+/[Rr]ecordings/
+
+# Unity genera esto al abrir el proyecto
+/Assets/Plugins/Editor/JetBrains*
+/Assets/AssetStoreTools*
+sysinfo.txt
+crashlytics-build.properties
+*.pidb.meta
+*.pdb.meta
+*.mdb.meta
+
+# Builds (se entregan en .zip / itch.io, no en el repo)
+*.apk
+*.aab
+*.unitypackage
+*.zip
+/Build_Hito3/
+
+# ── IDEs ──
+.vs/
+.vscode/
+.idea/
+*.csproj
+*.unityproj
+*.sln
+*.slnx
+*.suo
+*.tmp
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+
+# ── SO ──
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Videos del showcase (pesan mucho: subirlos a YouTube/Drive) ──
+*.mp4
+*.mkv
+*.mov
