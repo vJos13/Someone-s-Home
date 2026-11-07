@@ -7,7 +7,53 @@ Hito 3 · *La Atmósfera Narrativa* · Desarrollo de Videojuegos (24UC00320).
 - **Pipeline:** URP · **Plataforma de entrega:** WebGL
 - **Paquetes clave:** Cinemachine, Timeline, Shader Graph, Input System, AI Navigation
 
-Diseño completo: [`docs/DISENO.md`](docs/DISENO.md)
+Diseño completo: [`docs/DISENO.md`](docs/DISENO.md) · Relato 1: [`docs/RELATO_01_EL_RIO.md`](docs/RELATO_01_EL_RIO.md)
+
+## Relato 1 · *Across the River* (jugable)
+- Escena: `Assets/_Project/Scenes/Hito3_Main.unity` → **Play**.
+- Controles: WASD/flechas · ratón · Shift correr · E interactuar · Esc soltar ratón · R reiniciar al final.
+- El greybox se generó con `Relato1Builder.Build()` (herramienta de editor, sin menú).
+  ⚠️ SOBRESCRIBE la escena: no volver a ejecutarlo si se editó la escena a mano.
+- La casa y el columpio son modelos de Blender; las cajas del greybox siguen ahí **sin MeshRenderer** como colliders
+  (no borrarlas). Lo mismo con las piedras del sendero (`Roca_xx`): el modelo va encima, el cubo es el collider.
+  Placeholders restantes: audio procedural
+  (`VO_*` necesitan voces grabadas), materiales `M_Creature`, `M_Water`, `M_CreatureEyes` (shaders propios;
+  `M_Creature` ya trae la textura PBR `PielCriatura` como base).
+
+### Texto y sonidos
+- Los diálogos **no tienen voz**: el texto sale letra a letra (TextMeshPro) con un "tic" generado por código
+  (se puede cambiar por un clip propio en `HUD → Type Blip`).
+- Sonidos externos: poner los `.wav/.ogg` en `Assets/_Project/Audio/SFX/` y arrastrarlos al `AudioSource`
+  correspondiente (si tiene clip, `ProceduralAudio` ya no genera el suyo).
+- Eventos "algo suena, ve a revisarlo": GameObject vacío donde debe sonar + componente **`SoundEvent`**
+  (clip, cuándo, pensamiento, objetivo, tensión). Se dispara solo o desde el `onEnter` de un `NarrativeTrigger`.
+
+### Arte generado en Blender (Blender 5.x, por código)
+| Qué | Script | Salida | Aplicar en Unity |
+|---|---|---|---|
+| Texturas PBR tileables (madera, roca, corteza, pasto, tierra, barro, yeso, tela, mezclilla, metal oxidado, mantel, piel de la criatura) | `Tools/Blender/generate_pbr_textures.py` | `Art/Textures/PBR/<Set>/T_<Set>_*.png` | `PBRMaterialSetup.Apply()` |
+| Personajes: Sam (sentado/de pie/corriendo), Tammy, Emily, la criatura (cabeza y mandíbula separadas) | `Tools/Blender/build_characters.py` (+ `Characters.blend` para retocar a mano) | `Art/Models/Characters/*.fbx` | `CharacterSetup.ApplyAll()` |
+| Naturaleza: pinos, álamos, árbol seco (3 LODs), artemisa, rocas, piedra plana del sendero, pasto, juncos, cerca, poste de luz, tronco caído, tocón | `Tools/Blender/build_nature.py` (+ `Nature.blend`) | `Art/Models/Nature/*.fbx` | `NatureSetup.ApplyAll()` |
+| Casa (revestimiento, techo de tejas, ventanas, porche, cocina amueblada, puerta con bisagra) y columpio (glider de metal oxidado) | `Tools/Blender/build_environment.py` (+ `Environment.blend`) | `Art/Models/Environment/*.fbx` | `EnvironmentSetup.ApplyAll()` |
+
+```bash
+blender -b --factory-startup --python Tools/Blender/generate_pbr_textures.py -- [--only Tela,Mantel]
+blender -b --factory-startup --python Tools/Blender/build_characters.py
+blender -b --factory-startup --python Tools/Blender/build_environment.py
+blender -b --factory-startup --python Tools/Blender/build_nature.py
+```
+Los métodos de Unity están en `SomeonesHome.EditorTools` (Editor/); se ejecutan desde código (Unity Pipeline o un script de editor).
+`CharacterSetup.ReplaceInOpenScene()` cambia los modelos sin tocar el resto de la escena ni las referencias.
+`NatureSetup.Populate()` regenera todo el objeto `Naturaleza` (semilla fija → mismo resultado) y el pasto del terreno.
+Deja libres a propósito: casa, camino casa → sendero, sendero, columpio y el fondo de la criatura (su silueta debe
+recortarse contra el cielo). Pasto y juncos son *detalles del terreno* instanciados (baratos en WebGL).
+
+### Pruebas
+- `AutoPlaytest` (Scripts/Dev): bot que camina rutas con el mismo `CharacterController` del jugador y avisa en consola
+  `[Playtest] Atascado…` / `Se cayó del mapa`. No va en la escena; se añade en Play desde código.
+- Mandos: `GamepadGuard` ignora un mando cuyo stick ya está desviado al conectarse (drift) hasta que se mueva.
+  En Linux, el DualShock 4 por Bluetooth puede mandar datos basura al Editor (camina solo / "pulsa" botones):
+  si pasa, desconéctenlo para probar. En WebGL el navegador lee el mando por otra vía.
 
 ## Estructura de carpetas
 
