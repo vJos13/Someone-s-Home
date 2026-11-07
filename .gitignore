@@ -50,3 +50,7 @@ desktop.ini
 *.mp4
 *.mkv
 *.mov
+
+# Copias de seguridad de Blender
+*.blend1
+*.blend2
