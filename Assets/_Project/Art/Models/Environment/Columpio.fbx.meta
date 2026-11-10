@@ -7,6 +7,31 @@ ModelImporter:
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
+      name: M_Auto_Llanta
+    second: {fileID: 2100000, guid: a6a6b777311c9ae20863de1316ddeb4d, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_Auto_Luz
+    second: {fileID: 2100000, guid: 3df202a4e3e069b71995f713eae8d234, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_Auto_Pintura
+    second: {fileID: 2100000, guid: b8e736779a57d8e78b43d7bd78598f2d, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_Auto_Rojo
+    second: {fileID: 2100000, guid: a807d7444c034b430b4504db940f5eb2, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_Auto_Vidrio
+    second: {fileID: 2100000, guid: 5c4282b9e4dff97fdbe98f32a5237b37, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
       name: M_Casa_Alfombra
     second: {fileID: 2100000, guid: 139af12ed1e5dc050ab607786296f0c1, type: 2}
   - first:
@@ -122,6 +147,11 @@ ModelImporter:
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
+      name: M_Cobertizo_Madera
+    second: {fileID: 2100000, guid: 62d92859bcdb3ef84b57c11112d725ce, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
       name: M_Columpio_Madera
     second: {fileID: 2100000, guid: 701ce0ec8b2d99b78a8f0d44f76aad40, type: 2}
   - first:
@@ -139,6 +169,71 @@ ModelImporter:
       assembly: UnityEngine.CoreModule
       name: M_Mantel
     second: {fileID: 2100000, guid: cd94e80bbe70c2ed6a98be2e7a1987af, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_Prop_Almohada
+    second: {fileID: 2100000, guid: 23b9d4b0b3b531d6cbc892571b7f5822, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_Prop_Bidon
+    second: {fileID: 2100000, guid: 9cd3aa16ea4e0fa14b7c25caae8d163e, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_Prop_Celular
+    second: {fileID: 2100000, guid: fb47eda7b21eeaf6da48315dd89e7c16, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_Prop_Collar
+    second: {fileID: 2100000, guid: a36ff1c0c9f91ead5b021f3d721ec31b, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_Prop_Galvanizado
+    second: {fileID: 2100000, guid: e9be4526d9c2a2f53a66a94c575be580, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_Prop_Linterna
+    second: {fileID: 2100000, guid: ec129b8409c9ad92fbb4e7876d570a3f, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_Prop_Mochila
+    second: {fileID: 2100000, guid: 508db175bfe6d899db3d6bcf564fa345, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_Prop_Pantalla
+    second: {fileID: 2100000, guid: f3a0d4d7db184293a92dc86f360efab6, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_Prop_Papel
+    second: {fileID: 2100000, guid: d7641f9f28f35dd89aa5e56ecb77708f, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_Prop_Pelo
+    second: {fileID: 2100000, guid: 2b4ad2b4eb2a24317aab81c643f11e77, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_Prop_Plastico
+    second: {fileID: 2100000, guid: aded7443b8f2b3160aa93ade8104c005, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_Prop_SacoRojo
+    second: {fileID: 2100000, guid: 2803cfaa5e5938efda3c74a7c9a4841e, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_Prop_SacoVerde
+    second: {fileID: 2100000, guid: 47efe8a6948695226ae0089be545aba7, type: 2}
   materials:
     materialImportMode: 1
     materialName: 0

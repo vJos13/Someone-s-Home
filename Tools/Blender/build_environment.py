@@ -31,6 +31,8 @@ TILE = {
     "M_Casa_Azulejo": 0.6, "M_Casa_Gabinete": 1.0, "M_Casa_Encimera": 1.0, "M_Casa_Mueble": 1.0,
     "M_Mantel": 1.0, "M_Casa_PuertaPintada": 1.0, "M_Casa_Alfombra": 1.0, "M_Casa_Tela": 0.8,
     "M_Casa_Lena": 1.0, "M_Columpio_Metal": 1.0, "M_Columpio_Madera": 1.0,
+    "M_Prop_Galvanizado": 0.8, "M_Prop_SacoVerde": 0.6, "M_Prop_SacoRojo": 0.6, "M_Prop_Almohada": 0.5,
+    "M_Prop_Mochila": 0.5, "M_Cobertizo_Madera": 1.2,
 }
 PREVIEW = {  # solo para ver en Blender
     "M_Casa_Revestimiento": (0.8, 0.85, 0.85), "M_Casa_Moldura": (0.9, 0.9, 0.88), "M_Casa_Yeso": (0.85, 0.8, 0.7),
@@ -42,6 +44,13 @@ PREVIEW = {  # solo para ver en Blender
     "M_Casa_PuertaPintada": (0.4, 0.48, 0.45), "M_Casa_Alfombra": (0.45, 0.22, 0.18), "M_Casa_Tela": (0.85, 0.8, 0.65),
     "M_Casa_Lampara": (0.25, 0.38, 0.3), "M_Casa_Lena": (0.35, 0.25, 0.18), "M_Casa_Cuadro": (0.3, 0.32, 0.28),
     "M_Casa_Ceramica": (0.92, 0.9, 0.85), "M_Columpio_Metal": (0.3, 0.38, 0.3), "M_Columpio_Madera": (0.5, 0.4, 0.3),
+    "M_Prop_Plastico": (0.03, 0.03, 0.035), "M_Prop_Galvanizado": (0.55, 0.56, 0.55), "M_Prop_SacoVerde": (0.2, 0.32, 0.22),
+    "M_Prop_SacoRojo": (0.45, 0.12, 0.1), "M_Prop_Almohada": (0.85, 0.85, 0.8), "M_Prop_Pelo": (0.12, 0.08, 0.05),
+    "M_Prop_Celular": (0.02, 0.02, 0.02), "M_Prop_Pantalla": (0.6, 0.75, 1.0),
+    "M_Auto_Pintura": (0.85, 0.82, 0.74), "M_Auto_Rojo": (0.45, 0.08, 0.07), "M_Auto_Vidrio": (0.05, 0.06, 0.07),
+    "M_Auto_Llanta": (0.05, 0.05, 0.05), "M_Auto_Luz": (0.6, 0.05, 0.04), "M_Prop_Papel": (0.92, 0.9, 0.8),
+    "M_Prop_Mochila": (0.25, 0.35, 0.6), "M_Prop_Linterna": (0.85, 0.6, 0.1), "M_Prop_Collar": (0.5, 0.1, 0.08),
+    "M_Cobertizo_Madera": (0.5, 0.42, 0.33), "M_Prop_Bidon": (0.6, 0.08, 0.05),
 }
 
 
@@ -162,6 +171,15 @@ def sphere(center, scale, mat, seg=16, rings=10):
     o = bpy.context.active_object
     o.scale = S(*scale)
     bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+    return _finish(o, mat, smooth=True)
+
+
+def torus(center, axis, r_major, r_minor, mat, seg=24, minor_seg=8):
+    """Anillo en coords Unity; axis = eje del anillo (Unity)."""
+    bpy.ops.mesh.primitive_torus_add(major_segments=seg, minor_segments=minor_seg, major_radius=r_major,
+                                     minor_radius=r_minor, location=U(*center))
+    o = bpy.context.active_object
+    o.rotation_euler = U(*axis).to_track_quat("Z", "Y").to_euler()
     return _finish(o, mat, smooth=True)
 
 
@@ -467,10 +485,7 @@ def build_exterior():
             y = -0.25 + row * 0.17
             parts.append(cyl((WX / 2 + 0.35, y, z), (WX / 2 + 0.95, y, z), 0.085 + 0.01 * ((k * 7) % 3), "M_Casa_Lena", verts=9))
             k += 1
-    # Botes de basura metálicos junto al porche.
-    for i, x in enumerate((4.2, 4.8)):
-        parts.append(cyl((x, -0.4, WZ / 2 + 0.55), (x, 0.42, WZ / 2 + 0.55), 0.26, "M_Columpio_Metal", verts=16))
-        parts.append(cyl((x, 0.42, WZ / 2 + 0.55), (x, 0.47 + 0.05 * i, WZ / 2 + 0.55 + 0.04 * i), 0.29, "M_Columpio_Metal", verts=16))
+    # (El bote de basura ahora es Casa_Tacho, un objeto aparte: se usa en una tarea.)
     return parts
 
 
@@ -490,6 +505,9 @@ def build_back_door():
         parts.append(cyl((cx + 0.4, 1.0, zb + dz), (cx + 0.4, 1.0, zb + dz * 2.6), 0.032, "M_Casa_Metal"))
     door_glass.append(box((cx, 1.55, zb), (0.68, 0.8, 0.008), "M_Casa_Vidrio"))
     return join("Casa_Puerta", parts + door_glass, origin=(hx, 0, zb))
+
+
+VAJILLA = []
 
 
 def build_kitchen():
@@ -565,12 +583,13 @@ def build_kitchen():
     for sx in (-1, 1):
         k.append(box((T[0] + sx * 0.96, 0.64, T[2]), (0.008, 0.24, 1.12), "M_Mantel"))
     # Platos, vasos y olla de comida (la cena está servida).
+    # (Separados en VAJILLA: el jugador pone la mesa.)
     for i in range(4):
         px, pz = T[0] + (-0.5 if i % 2 == 0 else 0.5), T[2] + (-0.28 if i < 2 else 0.28)
-        k.append(cone((px, 0.772, pz), 0.08, 0.125, 0.022, "M_Casa_Ceramica", verts=24))
-        k.append(cyl((px + 0.2, 0.762, pz + (0.08 if i < 2 else -0.08)), (px + 0.2, 0.86, pz + (0.08 if i < 2 else -0.08)), 0.035, "M_Casa_Vidrio", verts=12))
+        VAJILLA.append(cone((px, 0.772, pz), 0.08, 0.125, 0.022, "M_Casa_Ceramica", verts=24))
+        VAJILLA.append(cyl((px + 0.2, 0.762, pz + (0.08 if i < 2 else -0.08)), (px + 0.2, 0.86, pz + (0.08 if i < 2 else -0.08)), 0.035, "M_Casa_Vidrio", verts=12))
         for f in (-1, 1):
-            k.append(box((px + f * 0.17, 0.763, pz), (0.02, 0.004, 0.18), "M_Casa_Metal"))
+            VAJILLA.append(box((px + f * 0.17, 0.763, pz), (0.02, 0.004, 0.18), "M_Casa_Metal"))
     k.append(cyl((T[0], 0.762, T[2]), (T[0], 0.9, T[2]), 0.13, "M_Casa_Esmalte", verts=20))
     k.append(cyl((T[0], 0.9, T[2]), (T[0], 0.92, T[2]), 0.135, "M_Casa_Esmalte", verts=20))
     k.append(sphere((T[0], 0.94, T[2]), (0.03, 0.03, 0.03), "M_Casa_Negro", 8, 6))
@@ -630,6 +649,256 @@ def build_lamp():
     return join("Casa_Lampara", p)
 
 
+# ──────────────────────────────────────────────────────────────────────────────
+# Props de las tareas y de la noche (se activan/mueven desde Unity)
+# ──────────────────────────────────────────────────────────────────────────────
+def lumpy(center, scale, mat, seed, amount=0.08, seg=14, rings=10):
+    """Esfera deformada (bolsa, almohada): ruido suave en los vértices."""
+    import random
+    o = sphere(center, scale, mat, seg, rings)
+    rnd = random.Random(seed)
+    for v in o.data.vertices:
+        k = 1.0 + rnd.uniform(-amount, amount)
+        v.co = v.co * k
+    return o
+
+
+def build_props():
+    X0 = -WX / 2 + TH / 2
+    objs = [join("Casa_Vajilla", VAJILLA)]
+
+    # Pila de platos y vasos en la mesada.
+    pila = []
+    for i in range(4):
+        pila.append(cone((X0 + 0.34, 0.912 + i * 0.024, 1.75), 0.08, 0.125, 0.022, "M_Casa_Ceramica", verts=24))
+    for i in range(4):
+        pila.append(cyl((X0 + 0.22 + (i % 2) * 0.09, 0.9, 2.08 + (i // 2) * 0.09),
+                        (X0 + 0.22 + (i % 2) * 0.09, 1.0, 2.08 + (i // 2) * 0.09), 0.035, "M_Casa_Vidrio", verts=12))
+    for i in range(8):
+        pila.append(box((X0 + 0.5, 0.905 + i * 0.004, 1.98 + (i % 2) * 0.012), (0.02, 0.004, 0.18), "M_Casa_Metal"))
+    objs.append(join("Casa_PilaPlatos", pila))
+
+    # Bolsa de basura (origen en la base: se mueve al tacho).
+    bx, bz = -5.2, 3.7
+    bolsa = [lumpy((bx, 0.3, bz), (0.27, 0.32, 0.25), "M_Prop_Plastico", 3),
+             lumpy((bx, 0.62, bz), (0.07, 0.06, 0.07), "M_Prop_Plastico", 4, 0.15, 8, 6)]
+    for sx in (-1, 1):
+        bolsa.append(lumpy((bx + sx * 0.06, 0.7, bz), (0.05, 0.035, 0.03), "M_Prop_Plastico", 5 + sx, 0.2, 8, 6))
+    objs.append(join("Casa_Bolsa", bolsa, origin=(bx, 0, bz)))
+
+    # Tacho de basura galvanizado (afuera, esquina NE; origen en la base para apoyarlo en el terreno).
+    tx, tz = 4.5, WZ / 2 + 0.6
+    tacho = [cone((tx, 0.39, tz), 0.27, 0.31, 0.78, "M_Prop_Galvanizado", verts=28, open_ends=True, thickness=0.01),
+             cyl((tx, 0.0, tz), (tx, 0.012, tz), 0.27, "M_Prop_Galvanizado", verts=28)]
+    for y in (0.12, 0.4, 0.66):
+        r = 0.27 + 0.04 * y / 0.78
+        tacho.append(cyl((tx, y, tz), (tx, y + 0.025, tz), r + 0.012, "M_Prop_Galvanizado", verts=28))
+    for sx in (-1, 1):
+        tacho.append(box((tx + sx * 0.32, 0.6, tz), (0.03, 0.03, 0.14), "M_Prop_Galvanizado"))
+    tacho.append(cone((tx, 0.81, tz), 0.335, 0.3, 0.06, "M_Prop_Galvanizado", verts=28))
+    tacho.append(cyl((tx, 0.86, tz - 0.06), (tx, 0.86, tz + 0.06), 0.015, "M_Prop_Galvanizado", verts=8))
+    objs.append(join("Casa_Tacho", tacho, origin=(tx, 0, tz)))
+
+    # Cortina cerrada (ventana este junto a los sacos de dormir).
+    t, sill, w, h = -1.8, 0.95, 1.2, 1.25
+    folds = []
+    n = 9
+    for i in range(n):
+        tt = t - (w + 0.3) / 2 + (i + 0.5) * (w + 0.3) / n
+        d = -TH / 2 - (0.1 if i % 2 == 0 else 0.14)
+        folds.append(wbox("E", tt, sill + h / 2 + 0.1, d, (w + 0.3) / n + 0.03, h + 0.4, 0.025, "M_Casa_Tela"))
+    objs.append(join("Casa_CortinaCerrada", folds))
+
+    # Puerta interior (al pasillo de los cuartos; no se abre).
+    pi = [wbox("S", 0.0, 1.03, -TH / 2 - 0.025, 0.86, 2.04, 0.045, "M_Casa_PuertaPintada", bevel=0.006)]
+    for y0, hh in ((0.25, 0.75), (1.15, 0.75)):
+        for tt in (-0.2, 0.2):
+            pi.append(wbox("S", tt, y0 + hh / 2, -TH / 2 - 0.05, 0.3, hh, 0.012, "M_Casa_PuertaPintada", bevel=0.006))
+    for tt in (-0.48, 0.48):
+        pi.append(wbox("S", tt, 1.07, -TH / 2 - 0.03, 0.08, 2.14, 0.05, "M_Casa_Moldura"))
+    pi.append(wbox("S", 0.0, 2.17, -TH / 2 - 0.03, 1.04, 0.08, 0.05, "M_Casa_Moldura"))
+    pi.append(sphere(wall_xf("S", 0.33, 1.0, -TH / 2 - 0.09), (0.03, 0.03, 0.03), "M_Casa_Metal", 10, 6))
+    objs.append(join("Casa_PuertaInterior", pi))
+
+    # Interruptor de luz junto a la puerta trasera.
+    sw = [wbox("N", 2.85, 1.3, -TH / 2 - 0.005, 0.08, 0.12, 0.01, "M_Casa_Esmalte", bevel=0.003),
+          wbox("N", 2.85, 1.31, -TH / 2 - 0.015, 0.015, 0.03, 0.012, "M_Casa_Esmalte")]
+    objs.append(join("Casa_Interruptor", sw))
+
+    # Cerrojo (perilla en la cara interior de la puerta; se cuelga de la bisagra en Unity).
+    hx, zb = 1.45, WZ / 2
+    cx, cy, cz = hx + 0.53 + 0.4, 1.3, zb - 0.03
+    cer = [cyl((cx, cy, cz), (cx, cy, cz - 0.01), 0.032, "M_Casa_Metal", verts=16),
+           box((cx, cy, cz - 0.02), (0.014, 0.055, 0.02), "M_Casa_Metal", bevel=0.003)]
+    objs.append(join("Casa_Cerrojo", cer, origin=(cx, cy, cz)))
+
+    # Sacos de dormir (mitad este de la casa; solo de noche).
+    def saco(name, cx, cz, mat, occupied):
+        p = [box((cx, 0.05, cz), (1.95, 0.1 if not occupied else 0.08, 0.78), mat, bevel=0.04)]
+        p.append(lumpy((cx + 1.0, 0.09, cz), (0.16, 0.07, 0.3), "M_Prop_Almohada", 11 + int(cz * 10), 0.05))
+        if occupied:
+            p.append(lumpy((cx - 0.05, 0.2, cz), (0.8, 0.16, 0.3), mat, 21, 0.06, 18, 10))      # cuerpo
+            p.append(lumpy((cx - 0.25, 0.32, cz + 0.08), (0.28, 0.1, 0.18), mat, 22, 0.08))        # rodillas
+            p.append(lumpy((cx + 0.9, 0.24, cz - 0.02), (0.11, 0.1, 0.1), "M_Prop_Pelo", 23, 0.12))  # cabeza (de espaldas)
+        else:
+            p.append(box((cx - 0.2, 0.12, cz), (1.5, 0.03, 0.78), mat, bevel=0.03))               # abierto
+        return join(name, p)
+    objs.append(saco("Casa_SacoAlex", 3.25, -0.55, "M_Prop_SacoVerde", False))
+    objs.append(saco("Casa_SacoSam", 3.25, -3.0, "M_Prop_SacoRojo", True))
+
+    # Celular de Sam junto a su almohada (la pantalla se enciende cuando te escribe).
+    px, pz = 4.05, -2.42
+    objs.append(join("Casa_CelularSam", [box((px, 0.012, pz), (0.075, 0.009, 0.155), "M_Prop_Celular", bevel=0.004)]))
+    objs.append(join("Casa_PantallaSam", [box((px, 0.0172, pz), (0.066, 0.001, 0.142), "M_Prop_Pantalla")]))
+    return objs
+
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Llegada, apagón y mañana: camionetas, mochila, linterna, nota, cobertizo, collar
+# ──────────────────────────────────────────────────────────────────────────────
+def pickup(name, cx, cz, south, paint):
+    """Camioneta pickup (cabina adelante, caja atrás). Origen = centro en el suelo. south: la trompa mira a -z."""
+    f = -1 if south else 1                         # signo de "adelante" en z
+    def P(x, y, z):
+        return (cx + x, y, cz + f * z)
+    def B(c, size, mat, bevel=0.0):
+        return box(P(*c), size, mat, bevel=bevel)
+    parts = []
+    parts.append(B((0, 0.7, 0), (1.8, 0.55, 5.0), paint, 0.05))                       # carrocería baja
+    parts.append(B((0, 1.04, 1.75), (1.74, 0.16, 1.5), paint, 0.04))                  # capó
+    # Cabina (perfil con parabrisas inclinado) + vidrios.
+    prof = [(1.0, 0.97), (0.45, 1.7), (-0.6, 1.7), (-0.6, 0.97)]
+    pts = [P(-0.85, y, z) for z, y in prof]
+    if not south:
+        pts = pts[::-1]
+    parts.append(prism(pts, (1.7, 0, 0), paint))
+    gprof = [(0.93, 1.05), (0.5, 1.62), (-0.62, 1.62), (-0.62, 1.05)]
+    gpts = [P(-0.86, y, z) for z, y in gprof]
+    if not south:
+        gpts = gpts[::-1]
+    parts.append(prism(gpts, (1.72, 0, 0), "M_Auto_Vidrio"))
+    for z in (0.15,):                                                                  # parante central
+        parts.append(B((0, 1.33, z), (1.74, 0.6, 0.08), paint))
+    # Caja de carga (paredes bajas).
+    for sx in (-1, 1):
+        parts.append(B((sx * 0.87, 1.2, -1.55), (0.06, 0.45, 1.85), paint, 0.01))
+    parts.append(B((0, 1.2, -2.47), (1.8, 0.45, 0.06), paint, 0.01))                  # compuerta
+    parts.append(B((0, 0.99, -1.55), (1.68, 0.02, 1.8), "M_Casa_Negro"))              # piso de la caja
+    # Ruedas.
+    for sx in (-1, 1):
+        for z in (1.6, -1.55):
+            parts.append(cyl(P(sx * 0.8, 0.38, z), P(sx * 1.0, 0.38, z), 0.38, "M_Auto_Llanta", verts=18))
+            parts.append(cyl(P(sx * 0.98, 0.38, z), P(sx * 1.01, 0.38, z), 0.2, "M_Casa_Metal", verts=14))
+    # Paragolpes, parrilla, faros, calaveras, espejos, manijas.
+    for z in (2.55, -2.55):
+        parts.append(B((0, 0.55, z), (1.86, 0.18, 0.15), "M_Casa_Metal", 0.02))
+    parts.append(B((0, 0.82, 2.51), (1.0, 0.25, 0.02), "M_Casa_Negro"))
+    for sx in (-1, 1):
+        parts.append(B((sx * 0.62, 0.85, 2.505), (0.3, 0.15, 0.03), "M_Casa_Esmalte"))
+        parts.append(B((sx * 0.8, 1.15, -2.505), (0.12, 0.25, 0.03), "M_Auto_Luz"))
+        parts.append(B((sx * 0.98, 1.3, 0.85), (0.14, 0.12, 0.05), "M_Casa_Negro"))
+        parts.append(B((sx * 0.905, 1.0, -0.2), (0.02, 0.03, 0.14), "M_Casa_Metal"))
+        parts.append(B((sx * 0.902, 0.75, 0.97), (0.01, 0.5, 0.01), "M_Casa_Negro"))   # línea de puerta
+    return join(name, parts, origin=(cx, 0, cz))
+
+
+def build_arrival_props():
+    objs = []
+    objs.append(pickup("Casa_Camioneta", 11.5, -3.5, True, "M_Auto_Pintura"))
+    objs.append(pickup("Casa_CamionetaPapa", 7.5, -12.5, False, "M_Auto_Rojo"))
+
+    # Mochila (origen en la base; empieza en la caja de la camioneta de Tammy).
+    mx, my, mz = 11.75, 1.0, -3.5 + 1.75
+    m = [lumpy((mx, my + 0.24, mz), (0.17, 0.24, 0.11), "M_Prop_Mochila", 41, 0.05),
+         lumpy((mx, my + 0.16, mz + 0.1), (0.13, 0.1, 0.06), "M_Prop_Mochila", 42, 0.06),
+         lumpy((mx, my + 0.47, mz - 0.02), (0.06, 0.03, 0.05), "M_Prop_Mochila", 43, 0.1, 8, 6)]
+    for sx in (-1, 1):
+        m.append(box((mx + sx * 0.08, my + 0.26, mz - 0.11), (0.035, 0.4, 0.015), "M_Casa_Negro"))
+    objs.append(join("Casa_Mochila", m, origin=(mx, my, mz)))
+
+    # Linterna en la mesada (junto al fregadero).
+    X0 = -WX / 2 + TH / 2
+    lx, lz = X0 + 0.3, 1.05
+    lin = [cyl((lx, 0.925, lz - 0.1), (lx, 0.925, lz + 0.07), 0.022, "M_Prop_Linterna", verts=12),
+           cyl((lx, 0.925, lz + 0.07), (lx, 0.925, lz + 0.13), 0.035, "M_Prop_Linterna", verts=14),
+           cyl((lx, 0.925, lz + 0.13), (lx, 0.925, lz + 0.135), 0.03, "M_Casa_Esmalte", verts=14),
+           box((lx, 0.95, lz - 0.02), (0.012, 0.01, 0.03), "M_Casa_Negro")]
+    objs.append(join("Casa_Linterna", lin, origin=(lx, 0.925, lz)))
+
+    # Nota pegada en la puerta del refri.
+    objs.append(join("Casa_NotaRefri", [box((X0 + 0.745, 1.38, -3.25), (0.004, 0.2, 0.15), "M_Prop_Papel"),
+                                        box((X0 + 0.75, 1.47, -3.25), (0.01, 0.025, 0.025), "M_Auto_Luz")]))
+
+    # Saco de Sam vacío (la mañana siguiente).
+    p = [box((3.25, 0.05, -3.0), (1.95, 0.08, 0.78), "M_Prop_SacoRojo", bevel=0.04),
+         lumpy((3.25 + 1.0, 0.09, -3.0), (0.16, 0.07, 0.3), "M_Prop_Almohada", 12, 0.05),
+         box((3.0, 0.11, -2.85), (1.2, 0.04, 0.55), "M_Prop_SacoRojo", yaw=14, bevel=0.03)]
+    objs.append(join("Casa_SacoSamVacio", p))
+
+    # Collar del perro de los vecinos (en el campo, al final de las huellas).
+    kx, kz = -8.0, 26.0
+    col = [torus((kx, 0.03, kz), (0, 1, 0.25), 0.11, 0.014, "M_Prop_Collar"),
+           cyl((kx + 0.12, 0.02, kz + 0.03), (kx + 0.125, 0.02, kz + 0.03), 0.025, "M_Casa_Metal", verts=12)]
+    objs.append(join("Casa_Collar", col, origin=(kx, 0, kz)))
+
+    objs += build_shed()
+    return objs
+
+
+SHED = (-11.5, 8.0)      # centro del piso del cobertizo (local de la casa)
+SHED_W, SHED_D, SHED_H = 2.6, 2.2, 2.1
+
+
+def build_shed():
+    sx, sz = SHED
+    W, D, H, T = SHED_W, SHED_D, SHED_H, 0.08
+    Mw = "M_Cobertizo_Madera"
+    parts = []
+    parts.append(box((sx, 0.04, sz), (W, 0.08, D), Mw))                                           # piso
+    parts.append(box((sx - W / 2 + T / 2, H / 2, sz), (T, H, D), Mw))                              # oeste
+    for k in (-1, 1):
+        parts.append(box((sx, H / 2, sz + k * (D / 2 - T / 2)), (W, H, T), Mw))                    # norte / sur
+    east = box((sx + W / 2 - T / 2, H / 2, sz), (T, H, D), Mw)
+    cut(east, (sx + W / 2, 0.95, sz), (0.4, 1.9, 0.95))                                           # vano de la puerta
+    parts.append(east)
+    # Tablas verticales (relieve) por fuera.
+    for i in range(9):
+        t = -D / 2 + 0.12 + i * (D - 0.24) / 8
+        parts.append(box((sx - W / 2 - 0.005, H / 2, sz + t), (0.015, H, 0.05), Mw))
+    # Techo de un agua (más alto hacia la puerta).
+    parts.append(beam((sx - W / 2 - 0.25, H + 0.02, sz), (sx + W / 2 + 0.3, H + 0.2, sz), D + 0.4, 0.06, "M_Casa_Tejas"))
+    # Paredes norte/sur suben hasta el techo inclinado (sin hueco).
+    for k in (-1, 1):
+        z = sz + k * (D / 2 - T / 2)
+        tri = [(sx - W / 2, H, z - T / 2), (sx + W / 2, H, z - T / 2), (sx + W / 2, H + 0.17, z - T / 2), (sx - W / 2, H + 0.02, z - T / 2)]
+        parts.append(prism(tri, (0, 0, T), Mw))
+    parts.append(box((sx + W / 2 - T / 2, H + 0.09, sz), (T, 0.18, D), Mw))
+    # Puerta abierta contra la pared.
+    parts.append(box((sx + W / 2 + 0.47, 0.97, sz - 0.5), (0.9, 1.86, 0.04), Mw, bevel=0.005))
+    # Repisas con latas, bidón, pala.
+    for y in (0.9, 1.45):
+        parts.append(box((sx - 0.2, y, sz + D / 2 - 0.22), (1.6, 0.03, 0.3), Mw))
+    for i in range(5):
+        x = sx - 0.85 + i * 0.32
+        parts.append(cyl((x, 0.915, sz + D / 2 - 0.2), (x, 0.915 + 0.12 + 0.03 * (i % 2), sz + D / 2 - 0.2), 0.055,
+                         ("M_Casa_Metal", "M_Prop_Bidon", "M_Prop_Galvanizado")[i % 3], verts=12))
+    parts.append(box((sx + 0.6, 0.22, sz + D / 2 - 0.3), (0.3, 0.36, 0.18), "M_Prop_Bidon", bevel=0.02))
+    parts.append(cyl((sx + 0.95, 0.08, sz - D / 2 + 0.15), (sx + 1.0, 1.3, sz - D / 2 + 0.12), 0.015, "M_Casa_Mueble"))
+    parts.append(box((sx + 0.94, 0.15, sz - D / 2 + 0.15), (0.2, 0.25, 0.03), "M_Casa_Metal"))
+    shed = join("Casa_Cobertizo", parts, origin=(sx, 0, sz))
+
+    # Caja de fusibles en la pared del fondo (oeste) + palanca aparte (gira).
+    bx = sx - W / 2 + T + 0.05
+    caja = join("Casa_CajaFusibles", [box((bx, 1.4, sz + 0.3), (0.1, 0.45, 0.35), "M_Casa_Metal", bevel=0.01),
+                                      box((bx + 0.051, 1.4, sz + 0.3), (0.004, 0.36, 0.26), "M_Casa_Negro")],
+                origin=(bx, 1.4, sz + 0.3))
+    pal = join("Casa_Palanca", [box((bx + 0.09, 1.4 - 0.06, sz + 0.3), (0.04, 0.12, 0.04), "M_Prop_Bidon"),
+                                box((bx + 0.12, 1.4 - 0.12, sz + 0.3), (0.06, 0.03, 0.1), "M_Prop_Bidon")],
+               origin=(bx + 0.07, 1.4, sz + 0.3))
+    return [shed, caja, pal]
+
+
 def build_house():
     shell = build_walls() + build_shell()
     frames, glass, cloth = build_openings()
@@ -642,7 +911,7 @@ def build_house():
         build_fridge(),
         build_lamp(),
         build_back_door(),
-    ]
+    ] + build_props() + build_arrival_props()
     return objs
 
 

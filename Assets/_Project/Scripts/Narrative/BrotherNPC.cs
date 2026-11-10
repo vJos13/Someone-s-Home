@@ -60,6 +60,26 @@ namespace SomeonesHome
 
         public void SetShaking(bool value) => shaking = value;
 
+        /// <summary>De pie en cualquier lugar (llegada, mañana siguiente).</summary>
+        public void PlaceStanding(Vector3 position, Vector3 faceTowards)
+        {
+            gameObject.SetActive(true);
+            shaking = false;
+            transform.position = position;
+            SetSitting(false);
+            Face(faceTowards);
+        }
+
+        /// <summary>De vuelta sentado en el columpio (después de la llegada).</summary>
+        public void ResetToSwing()
+        {
+            gameObject.SetActive(true);
+            shaking = false;
+            if (animator) animator.SetBool("Running", false);
+            if (sitPoint) transform.SetPositionAndRotation(sitPoint.position, sitPoint.rotation);
+            SetSitting(true);
+        }
+
         public void Face(Vector3 target)
         {
             Vector3 d = target - transform.position; d.y = 0;
@@ -80,7 +100,9 @@ namespace SomeonesHome
         }
 
         /// <summary>Corre siguiendo puntos (p. ej. el sendero de rocas) y desaparece al llegar.</summary>
-        public IEnumerator RunAlong(Transform[] path)
+        public IEnumerator RunAlong(Transform[] path) => RunAlong(System.Array.ConvertAll(path, p => p ? p.position : transform.position), true);
+
+        public IEnumerator RunAlong(Vector3[] path, bool hideAtEnd)
         {
             shaking = false;
             if (animator) animator.SetBool("Running", true);
@@ -88,18 +110,19 @@ namespace SomeonesHome
             float bob = 0f;
             foreach (var p in path)
             {
-                if (!p) continue;
-                while ((transform.position - p.position).sqrMagnitude > 0.04f)
+                while ((transform.position - p).sqrMagnitude > 0.04f)
                 {
-                    Face(p.position);
-                    transform.position = Vector3.MoveTowards(transform.position, p.position, runSpeed * Time.deltaTime);
+                    Face(p);
+                    transform.position = Vector3.MoveTowards(transform.position, p, runSpeed * Time.deltaTime);
                     // Rebote de carrera simple (sin animaciones).
                     bob += Time.deltaTime * 11f;
                     if (body) body.localPosition = new Vector3(0f, Mathf.Abs(Mathf.Sin(bob)) * 0.06f, 0f);
                     yield return null;
                 }
             }
-            gameObject.SetActive(false);
+            if (animator) animator.SetBool("Running", false);
+            if (hideAtEnd) gameObject.SetActive(false);
+            else SetSitting(false);
         }
 
         void Update()

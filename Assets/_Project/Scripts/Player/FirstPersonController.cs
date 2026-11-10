@@ -47,6 +47,13 @@ namespace SomeonesHome
         public bool LookLocked { get; set; }
         public Transform Head => head;
 
+        /// <summary>Inclinación vertical de la cámara (grados, + mira hacia abajo).</summary>
+        public float Pitch
+        {
+            get => pitch;
+            set { pitch = Mathf.Clamp(value, -pitchLimit, pitchLimit); if (head) head.localRotation = Quaternion.Euler(pitch, 0f, 0f); }
+        }
+
         /// <summary>Solo pruebas automáticas (AutoPlaytest): si tiene valor, sustituye al teclado/mando.</summary>
         public Vector2? DebugMoveInput { get; set; }
         public bool DebugRun { get; set; }
@@ -85,7 +92,8 @@ namespace SomeonesHome
         void Look()
         {
             Vector2 delta = Vector2.zero;
-            if (Mouse.current != null && Cursor.lockState == CursorLockMode.Locked)
+            // Si un bot de pruebas maneja al jugador, el mouse no gira la cámara.
+            if (Mouse.current != null && Cursor.lockState == CursorLockMode.Locked && !DebugMoveInput.HasValue)
                 delta += Mouse.current.delta.ReadValue() * mouseSensitivity;
             if (GamepadGuard.Current != null)
                 delta += GamepadGuard.Current.rightStick.ReadValue() * gamepadSensitivity * Time.deltaTime;
@@ -150,8 +158,15 @@ namespace SomeonesHome
         void OnControllerColliderHit(ControllerColliderHit hit)
         {
             // Nos quedamos con la superficie MÁS PLANA tocada este frame (así las rocas "ganan" a la pendiente).
-            if (hit.normal.y <= 0.1f) return;
-            if (!hasGroundHit || hit.normal.y > groundNormal.y) groundNormal = hit.normal;
+            Vector3 n = hit.normal;
+            if (n.y <= 0.1f) return;
+            // En aristas (borde de una roca) Unity da una normal "redondeada" que parece pendiente empinada
+            // y el jugador resbalaba hacia atrás. Medimos la superficie real con un rayo corto hacia abajo:
+            // encima de la roca sale plana; en la colina empinada sigue saliendo empinada.
+            if (n.y < 0.95f && Physics.Raycast(hit.point + Vector3.up * 0.08f, Vector3.down, out var surface, 0.2f, ~0, QueryTriggerInteraction.Ignore)
+                && surface.normal.y > n.y)
+                n = surface.normal;
+            if (!hasGroundHit || n.y > groundNormal.y) groundNormal = n;
             hasGroundHit = true;
         }
 

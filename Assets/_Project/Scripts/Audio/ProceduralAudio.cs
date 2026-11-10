@@ -10,7 +10,8 @@ namespace SomeonesHome
     [RequireComponent(typeof(AudioSource))]
     public class ProceduralAudio : MonoBehaviour
     {
-        public enum Kind { Wind, River, Crickets, Whisper, Creak }
+        // Los nuevos van AL FINAL: el enum se guarda como número en la escena.
+        public enum Kind { Wind, River, Crickets, Whisper, Creak, Bark, Knock, Buzz, Ring, Rattle, Step, Horn, Click }
 
         [SerializeField] Kind kind;
         [SerializeField] float seconds = 6f;
@@ -107,6 +108,121 @@ namespace SomeonesHome
                         float f = 180f + 60f * Mathf.Sin(cycle * 5f);
                         float saw = ((t * f) % 1f) * 2f - 1f;
                         data[i] = saw * env * 0.12f * (0.7f + 0.3f * Rand());
+                    }
+                    break;
+                }
+                case Kind.Bark:
+                {
+                    // Un ladrido: tono que cae (600→300 Hz) con armónicos + ruido, envolvente seca.
+                    float ph = 0, lp = 0;
+                    for (int i = 0; i < n; i++)
+                    {
+                        float t = i / (float)Rate;
+                        float u = t / seconds;
+                        float f = Mathf.Lerp(620f, 300f, Mathf.Sqrt(u));
+                        ph += f / Rate;
+                        float tone = Mathf.Sin(ph * 2f * Mathf.PI) + 0.6f * Mathf.Sin(ph * 4f * Mathf.PI) + 0.35f * Mathf.Sin(ph * 6f * Mathf.PI);
+                        lp += (Rand() - lp) * 0.5f;
+                        float env = Mathf.Min(1f, t / 0.012f) * Mathf.Pow(1f - u, 1.6f);
+                        data[i] = Mathf.Clamp((tone * 0.55f + lp * 0.7f) * env, -1f, 1f) * 0.6f;
+                    }
+                    break;
+                }
+                case Kind.Knock:
+                {
+                    // Tres golpes en madera: golpe grave (95 Hz) + clic.
+                    float[] at = { 0f, 0.26f, 0.5f };
+                    for (int i = 0; i < n; i++)
+                    {
+                        float t = i / (float)Rate;
+                        float v = 0f;
+                        foreach (float a in at)
+                        {
+                            float d = t - a;
+                            if (d < 0f || d > 0.25f) continue;
+                            v += Mathf.Sin(d * 2f * Mathf.PI * 95f) * Mathf.Exp(-d * 28f) * 0.9f
+                               + Mathf.Sin(d * 2f * Mathf.PI * 210f) * Mathf.Exp(-d * 45f) * 0.4f
+                               + Rand() * Mathf.Exp(-d * 400f) * 0.5f;
+                        }
+                        data[i] = Mathf.Clamp(v, -1f, 1f);
+                    }
+                    break;
+                }
+                case Kind.Buzz:
+                {
+                    // Vibración de celular: dos pulsos de 160 Hz con zumbido.
+                    for (int i = 0; i < n; i++)
+                    {
+                        float t = i / (float)Rate;
+                        bool on = (t < 0.38f) || (t > 0.55f && t < 0.93f);
+                        float env = on ? 1f : 0f;
+                        float sq = Mathf.Sign(Mathf.Sin(t * 2f * Mathf.PI * 160f)) * 0.5f + Mathf.Sin(t * 2f * Mathf.PI * 320f) * 0.3f;
+                        data[i] = sq * env * 0.35f;
+                    }
+                    break;
+                }
+                case Kind.Ring:
+                {
+                    // Tono de llamada (440 + 480 Hz, 2 s sonando / 4 s de silencio, como en EE. UU.).
+                    for (int i = 0; i < n; i++)
+                    {
+                        float t = i / (float)Rate;
+                        float c = t % 6f;
+                        float env = c < 2f ? Mathf.Min(1f, c / 0.02f) * Mathf.Min(1f, (2f - c) / 0.02f) : 0f;
+                        data[i] = (Mathf.Sin(t * 2f * Mathf.PI * 440f) + Mathf.Sin(t * 2f * Mathf.PI * 480f)) * 0.15f * env;
+                    }
+                    break;
+                }
+                case Kind.Rattle:
+                {
+                    // Manija que alguien sacude: clics metálicos rápidos e irregulares.
+                    float next = 0f;
+                    for (int i = 0; i < n; i++)
+                    {
+                        float t = i / (float)Rate;
+                        if (t >= next) next = t + 0.06f + (float)rng.NextDouble() * 0.09f;
+                        float d = 0.15f - (next - t);
+                        float click = d >= 0f ? Mathf.Exp(-d * 120f) : 0f;
+                        float body = Mathf.Sin(t * 2f * Mathf.PI * 1850f) * 0.5f + Mathf.Sin(t * 2f * Mathf.PI * 2730f) * 0.3f;
+                        data[i] = (body + Rand() * 0.6f) * click * 0.5f * Mathf.Clamp01((seconds - t) * 4f);
+                    }
+                    break;
+                }
+                case Kind.Step:
+                {
+                    // Un paso sobre pasto seco: crujido corto de ruido filtrado.
+                    float lp = 0;
+                    for (int i = 0; i < n; i++)
+                    {
+                        float t = i / (float)Rate;
+                        lp += (Rand() - lp) * 0.25f;
+                        float env = Mathf.Min(1f, t / 0.01f) * Mathf.Exp(-t * 14f) * (0.6f + 0.4f * Mathf.Abs(Rand()));
+                        data[i] = lp * env * 1.4f;
+                    }
+                    break;
+                }
+                case Kind.Horn:
+                {
+                    // Bocina de camioneta: dos toques (acorde 350 + 440 Hz con armónicos).
+                    for (int i = 0; i < n; i++)
+                    {
+                        float t = i / (float)Rate;
+                        bool on = t < 0.35f || (t > 0.5f && t < 1.25f);
+                        float env = on ? 1f : 0f;
+                        float w = 0f;
+                        foreach (float f in new[] { 350f, 440f })
+                            w += Mathf.Sign(Mathf.Sin(t * 2f * Mathf.PI * f)) * 0.3f + Mathf.Sin(t * 2f * Mathf.PI * f * 2f) * 0.15f;
+                        data[i] = w * env * 0.3f;
+                    }
+                    break;
+                }
+                case Kind.Click:
+                {
+                    // Clic seco (interruptor, breaker) + golpe grave.
+                    for (int i = 0; i < n; i++)
+                    {
+                        float t = i / (float)Rate;
+                        data[i] = (Rand() * Mathf.Exp(-t * 300f) + Mathf.Sin(t * 2f * Mathf.PI * 90f) * Mathf.Exp(-t * 25f) * 0.6f) * 0.8f;
                     }
                     break;
                 }

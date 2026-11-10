@@ -305,11 +305,13 @@ namespace SomeonesHome.EditorTools
                     Static(rock);
                 }
             }
-            // Zigzag: el giro lo forman las dos rocas del vértice (misma altura), sin escalón extra.
-            Segment(a, b);
-            Segment(b, c);
-            CarveTrail(terrain, a, b);
-            CarveTrail(terrain, b, c);
+            // Zigzag: el giro es un descanso de dos rocas a la misma altura, separadas 1,6 m en z,
+            // para que las dos filas no se encimen (si se enciman queda un escalón de ~1 m imposible de subir).
+            Vector3 b1 = b + Vector3.back * 0.8f, b2 = b + Vector3.forward * 0.8f;
+            Segment(a, b1);
+            Segment(b2, c);
+            CarveTrail(terrain, a, b1);
+            CarveTrail(terrain, b2, c);
             return new[] { a, b, c };
         }
 

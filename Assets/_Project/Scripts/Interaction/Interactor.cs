@@ -15,7 +15,6 @@ namespace SomeonesHome
     {
         [SerializeField] Transform rayOrigin;
         [SerializeField] float range = 2.5f;
-        [SerializeField] LayerMask mask = ~0;
 
         FirstPersonController player;
         IInteractable current;
@@ -38,7 +37,7 @@ namespace SomeonesHome
             current = null;
             if (player && player.InputLocked) { HUD.Instance?.SetPrompt(null); return; }
 
-            if (Physics.Raycast(rayOrigin.position, rayOrigin.forward, out var hit, range, mask, QueryTriggerInteraction.Ignore))
+            if (GazeUtility.Raycast(rayOrigin.position, rayOrigin.forward, range, transform, out var hit))
             {
                 var candidate = hit.collider.GetComponentInParent<IInteractable>();
                 if (candidate != null && candidate.CanInteract) current = candidate;

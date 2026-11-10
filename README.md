@@ -11,7 +11,7 @@ Diseño completo: [`docs/DISENO.md`](docs/DISENO.md) · Relato 1: [`docs/RELATO_
 
 ## Relato 1 · *Across the River* (jugable)
 - Escena: `Assets/_Project/Scenes/Hito3_Main.unity` → **Play**.
-- Controles: WASD/flechas · ratón · Shift correr · E interactuar · Esc soltar ratón · R reiniciar al final.
+- Controles: WASD/flechas · ratón · Shift correr · E interactuar · Tab celular · Q llamar (cuando se pide) · Esc soltar ratón · R reiniciar al final.
 - El greybox se generó con `Relato1Builder.Build()` (herramienta de editor, sin menú).
   ⚠️ SOBRESCRIBE la escena: no volver a ejecutarlo si se editó la escena a mano.
 - La casa y el columpio son modelos de Blender; las cajas del greybox siguen ahí **sin MeshRenderer** como colliders
@@ -44,11 +44,13 @@ blender -b --factory-startup --python Tools/Blender/build_nature.py
 ```
 Los métodos de Unity están en `SomeonesHome.EditorTools` (Editor/); se ejecutan desde código (Unity Pipeline o un script de editor).
 `CharacterSetup.ReplaceInOpenScene()` cambia los modelos sin tocar el resto de la escena ni las referencias.
+`Relato1ExtrasSetup.Apply()` monta tareas, celular, acechador y noche (ejecutar después de `EnvironmentSetup.ApplyAll()`).
 `NatureSetup.Populate()` regenera todo el objeto `Naturaleza` (semilla fija → mismo resultado) y el pasto del terreno.
 Deja libres a propósito: casa, camino casa → sendero, sendero, columpio y el fondo de la criatura (su silueta debe
 recortarse contra el cielo). Pasto y juncos son *detalles del terreno* instanciados (baratos en WebGL).
 
 ### Pruebas
+- `AutoPlaythrough` (Scripts/Dev): juega el relato completo solo (sirve para grabar el gameplay). Con `badEnding = true` abre la puerta de noche y prueba el final malo.
 - `AutoPlaytest` (Scripts/Dev): bot que camina rutas con el mismo `CharacterController` del jugador y avisa en consola
   `[Playtest] Atascado…` / `Se cayó del mapa`. No va en la escena; se añade en Play desde código.
 - Mandos: `GamepadGuard` ignora un mando cuyo stick ya está desviado al conectarse (drift) hasta que se mueva.

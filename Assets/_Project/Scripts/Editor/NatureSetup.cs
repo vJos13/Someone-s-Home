@@ -141,6 +141,10 @@ namespace SomeonesHome.EditorTools
             if (z > RiverNear - 1.5f && z < RiverFar + 1.5f) return true;                 // agua
             if (tall && x > 80f && x < 116f && z > SlopeBottom && z < 185f) return true;   // fondo de la criatura
             if (x > 84f - r && x < 110f + r && z > RiverFar && z < 172f) return true;       // nada delante de la criatura
+            if (x > 97.5f - r && x < 105.5f + r && z > 50f - r && z < 60f + r) return true;   // camioneta de Tammy (llegada)
+            if (x > 94.5f - r && x < 101f + r && z > 41f - r && z < 50f + r) return true;     // camioneta de papá (mañana)
+            if (Vector2.Distance(p, new Vector2(78.5f, 66f)) < 4f + r) return true;          // cobertizo
+            if (SegDist(p, new Vector2(80f, 66f), new Vector2(82f, 85f)) < 2.5f + r) return true; // huellas al campo
             return false;
         }
 
@@ -437,7 +441,9 @@ namespace SomeonesHome.EditorTools
                 var p = new Vector2(x, z);
                 bool house = x > HouseC.x - 7.5f && x < HouseC.x + 7.5f && z > HouseC.z - 6f && z < HouseC.z + 8.5f;
                 bool trail = SegDist(p, PathA, PathB) < 1.8f || SegDist(p, PathB, PathC) < 1.8f;
-                if (house || trail) continue;
+                bool shed = Vector2.Distance(p, new Vector2(78.5f, 66f)) < 2.2f;
+                bool trucks = (x > 99.5f && x < 103.5f && z > 51.5f && z < 57.5f) || (x > 96.3f && x < 98.7f && z > 42.8f && z < 48.2f);
+                if (house || trail || shed || trucks) continue;
                 float patch = Mathf.PerlinNoise(x * 0.08f + 3f, z * 0.08f + 7f);
                 float fine = Mathf.PerlinNoise(x * 0.5f, z * 0.5f);
                 bool water = h < Bank - 0.25f;

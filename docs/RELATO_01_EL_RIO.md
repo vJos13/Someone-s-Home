@@ -1,12 +1,10 @@
 # Relato 1 · *Across the River* (Al otro lado del río)
 
-## Fuente
-- **Post original:** "My brother and I have a story that happened during the day, and we're both POSITIVE what we saw was a skin walker."
-- **Autor:** u/lacoolestalpaca · r/scarystories · 2020
-- **Enlace:** https://www.reddit.com/r/scarystories/comments/gbvs9z/my_brother_and_i_have_a_story_that_happened/
+## Origen
+- Testimonio en primera persona de dos hermanos que aseguran haber visto algo al otro lado de un río.
 - **Lugar:** Wenatchee, estado de Washington (EE. UU.)
-- **Nota del autor:** en los comentarios indica que su familia es nativa americana. En el juego **no se nombra a la criatura**:
-  solo se ve "algo parecido a un venado". El nombre aparece únicamente en el epílogo, citando lo que dijo el hermano.
+- En el juego **no se nombra a la criatura**: solo se ve "algo parecido a un venado".
+  El nombre aparece únicamente en el epílogo, citando lo que dijo el hermano.
 
 ## Personajes
 | En el relato | En el juego | Rol |
@@ -20,7 +18,7 @@
 ## Fidelidad: qué viene del relato y qué agregamos
 | Del relato (real) | Agregado para el juego |
 |---|---|
-| Se quedaban en casa de una amiga mientras sus padres estaban fuera | Intro con texto "Basado en un relato real" |
+| Se quedaban en casa de una amiga mientras sus padres estaban fuera | Intro con texto "Basado en hechos reales" |
 | "La cena está lista, ¿puedes ir por tu hermano?" | Objetivo en pantalla |
 | El patio trasero es un campo | Viento y grillos procedurales |
 | La colina "estúpidamente empinada": hay que pisar las rocas o sales volando | **Mecánica:** la pendiente no se puede caminar; solo el sendero de rocas |
@@ -60,3 +58,15 @@
 1. **Antes:** Alex baja por las rocas. Abajo se ve a Sam en el columpio y el río brilla con el sol. *Emoción: calma.*
 2. **El momento:** Sam está de pie y la cámara cruza el río: una figura de venado erguida, a contraluz. *Emoción: terror.*
 3. **Después:** Alex sube corriendo por las rocas mientras una voz igual a la de Emily lo llama desde el río. *Emoción: pánico.*
+
+
+## Escenas agregadas (tensión de a poco, estilo "basado en hechos reales")
+| Momento | Qué pasa | Para qué |
+|---|---|---|
+| Cocina | Mensajes de mamá al celular; Tammy pide poner la mesa y sacar la basura | Rutina normal antes del miedo |
+| El tacho de afuera | El perro de los vecinos ladra, se pone loco y se calla de golpe. En el borde de la colina hay algo parado muy derecho; cuando vuelves a mirar ya no está | Primer aviso, ambiguo |
+| Llamar a Sam | Suena y suena: buzón de voz | Inquietud antes de salir |
+| El regreso | La cosa nos sigue: cada vez que miras atrás está más cerca. Pasos detrás de ti en el pasto | Persecución sin persecución |
+| La noche | Sam te escribe desde su saco ("¿oyes eso?"). Golpes en la ventana, algo pegado al vidrio. Una voz con la voz de Tammy (y después la de Sam) pide que abras | Clímax dentro de la casa |
+| Asegurar la casa | Cerrar la cortina, poner el cerrojo, apagar la luz, acostarse | Tareas bajo presión |
+| Final malo | Si abres la puerta de noche | Consecuencia de la decisión |

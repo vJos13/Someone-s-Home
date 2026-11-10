@@ -57,6 +57,27 @@ namespace SomeonesHome.EditorTools
             { "M_Casa_Cuadro",        new(null, new Color(0.3f, 0.33f, 0.28f), 0.3f) },
             { "M_Casa_Ceramica",      new(null, new Color(0.93f, 0.91f, 0.86f), 0.85f) },
             { "M_Casa_Vidrio",        new(null, new Color(0.7f, 0.78f, 0.8f, 0.22f), 0.95f) },
+            // Props de las tareas y de la noche.
+            { "M_Prop_Plastico",      new(null, new Color(0.02f, 0.02f, 0.025f), 0.78f) },
+            { "M_Prop_Galvanizado",   new(null, new Color(0.55f, 0.57f, 0.57f), 0.45f, 0.85f) },
+            { "M_Prop_SacoVerde",     new("Tela",          new Color(0.32f, 0.45f, 0.32f)) },
+            { "M_Prop_SacoRojo",      new("Tela",          new Color(0.62f, 0.2f, 0.16f)) },
+            { "M_Prop_Almohada",      new("Tela",          new Color(0.95f, 0.93f, 0.88f)) },
+            { "M_Prop_Pelo",          new(null, new Color(0.1f, 0.07f, 0.05f), 0.3f) },
+            { "M_Prop_Celular",       new(null, new Color(0.02f, 0.02f, 0.02f), 0.8f) },
+            { "M_Prop_Pantalla",      new(null, new Color(0.04f, 0.05f, 0.07f), 0.9f) },
+            // Llegada, apagón y mañana.
+            { "M_Auto_Pintura",       new(null, new Color(0.82f, 0.79f, 0.7f), 0.55f, 0.2f) },
+            { "M_Auto_Rojo",          new(null, new Color(0.42f, 0.07f, 0.06f), 0.55f, 0.2f) },
+            { "M_Auto_Vidrio",        new(null, new Color(0.05f, 0.06f, 0.07f), 0.92f) },
+            { "M_Auto_Llanta",        new(null, new Color(0.04f, 0.04f, 0.04f), 0.15f) },
+            { "M_Auto_Luz",           new(null, new Color(0.55f, 0.05f, 0.04f), 0.8f) },
+            { "M_Prop_Papel",         new(null, new Color(0.9f, 0.88f, 0.78f), 0.1f) },
+            { "M_Prop_Mochila",       new("Tela",          new Color(0.35f, 0.47f, 0.8f)) },
+            { "M_Prop_Linterna",      new(null, new Color(0.85f, 0.6f, 0.1f), 0.6f) },
+            { "M_Prop_Collar",        new(null, new Color(0.45f, 0.09f, 0.07f), 0.4f) },
+            { "M_Cobertizo_Madera",   new("MaderaVieja",   new Color(0.62f, 0.52f, 0.42f)) },
+            { "M_Prop_Bidon",         new(null, new Color(0.6f, 0.08f, 0.05f), 0.5f) },
         };
 
         public static void ApplyAll()
@@ -82,6 +103,9 @@ namespace SomeonesHome.EditorTools
                 if (spec.set != null) PBRMaterialSetup.ApplyToMaterial(m, spec.set, Vector2.one, spec.color);
                 else
                 {
+                    // Sin textura: limpiar mapas que pudieran quedar de una versión anterior del material.
+                    foreach (var tex in new[] { "_BaseMap", "_BumpMap", "_MetallicGlossMap", "_OcclusionMap" }) m.SetTexture(tex, null);
+                    foreach (var kw in new[] { "_NORMALMAP", "_METALLICSPECGLOSSMAP", "_OCCLUSIONMAP" }) m.DisableKeyword(kw);
                     m.SetColor("_BaseColor", spec.color);
                     m.SetFloat("_Smoothness", spec.smooth);
                     m.SetFloat("_Metallic", spec.metal);

@@ -13,6 +13,8 @@ namespace SomeonesHome
         [SerializeField] string closePrompt = "Cerrar";
         [SerializeField] AudioSource sfx;
         public UnityEvent onOpened;
+        /// <summary>Cada vez que se abre (onOpened solo la primera).</summary>
+        public event System.Action Opened;
 
         bool open;
         bool openedOnce;
@@ -34,11 +36,26 @@ namespace SomeonesHome
         {
             open = !open;
             if (sfx) sfx.Play();
+            if (open) Opened?.Invoke();
             if (open && !openedOnce)
             {
                 openedOnce = true;
                 onOpened?.Invoke();
             }
+        }
+
+        /// <summary>Cierra sin sonido ni eventos (cambio de escena / noche).</summary>
+        public void ForceClose(bool instant = true)
+        {
+            open = false;
+            if (instant && Application.isPlaying) transform.localRotation = closedRot;
+        }
+
+        /// <summary>Abre sin sonido ni eventos (p. ej. alguien la dejó abierta).</summary>
+        public void ForceOpen()
+        {
+            open = true;
+            openedOnce = true;
         }
 
         void Update()
