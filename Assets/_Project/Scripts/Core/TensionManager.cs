@@ -66,7 +66,7 @@ namespace SomeonesHome
 
             if (crickets)
             {
-                float goal = cricketsSilenced ? 0f : cricketsMaxVolume * (1f - tension * 0.6f);
+                float goal = cricketsSilenced ? 0f : cricketsMaxVolume * (1f - tension * 0.6f) * GameAudio.Scale(GameAudio.Category.Ambience);
                 // Silencio brusco, regreso lento.
                 float speed = cricketsSilenced ? 3f : 0.1f;
                 crickets.volume = Mathf.MoveTowards(crickets.volume, goal, speed * Time.deltaTime);

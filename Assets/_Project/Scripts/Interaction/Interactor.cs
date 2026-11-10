@@ -34,8 +34,9 @@ namespace SomeonesHome
 
         void Update()
         {
+            if (GamePause.IsPaused) return;
             current = null;
-            if (player && player.InputLocked) { HUD.Instance?.SetPrompt(null); return; }
+            if (player && player.InputLocked) { HUD.Instance?.SetInteraction(null); return; }
 
             if (GazeUtility.Raycast(rayOrigin.position, rayOrigin.forward, range, transform, out var hit))
             {
@@ -43,11 +44,11 @@ namespace SomeonesHome
                 if (candidate != null && candidate.CanInteract) current = candidate;
             }
 
-            HUD.Instance?.SetPrompt(current != null ? $"[E] {current.Prompt}" : null);
+            HUD.Instance?.SetInteraction(current?.Prompt);
 
             bool pressed = (Keyboard.current != null && Keyboard.current.eKey.wasPressedThisFrame)
                         || (GamepadGuard.Current != null && GamepadGuard.Current.buttonSouth.wasPressedThisFrame);
-            if (pressed && current != null) current.Interact();
+            if (pressed && current != null) { current.Interact(); HUD.Instance?.PulseInteraction(); }
         }
     }
 }

@@ -56,7 +56,7 @@ namespace SomeonesHome
 
         void Update()
         {
-            if (!Owned || flickering) return;
+            if (!Owned || flickering || GamePause.IsPaused) return;
             if (Keyboard.current != null && Keyboard.current.fKey.wasPressedThisFrame) SetOn(!On);
         }
     }

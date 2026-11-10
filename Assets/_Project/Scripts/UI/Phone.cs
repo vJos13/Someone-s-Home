@@ -105,7 +105,7 @@ namespace SomeonesHome
         void Update()
         {
             var kb = Keyboard.current;
-            if (kb == null || inCall) return;
+            if (kb == null || inCall || GamePause.IsPaused) return;
             if (kb.tabKey.wasPressedThisFrame) Open(!IsOpen);
             if (CallAvailable && kb.qKey.wasPressedThisFrame) CallRequested = true;
         }
