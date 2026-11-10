@@ -367,7 +367,7 @@ namespace SomeonesHome.EditorTools
             if (collar) { Snap(collar, 0.0f); morning.Add(collar.gameObject); }
             props.collar = Use(collar, "Recoger el collar", new Vector3(0.3f, 0.2f, 0.3f));
             props.samMorning = PointRot("Mañana: Sam junto a la ventana", 97.7f, 57.7f, 200f);
-            props.samAtTruck = PointRot("Mañana: Sam junto a la camioneta", 99.4f, 47.6f, 0f);
+            props.samAtTruck = PointRot("Mañana: Sam junto a la camioneta", 99.5f, 50.6f, 0f);
             props.horn = Sound("Bocina (papá)", papa ? papa.position + Vector3.up : new Vector3(97.5f, 21f, 45.5f), ProceduralAudio.Kind.Horn, 1.4f, 1f, 8f, 150f);
 
             var trailPts = new[]

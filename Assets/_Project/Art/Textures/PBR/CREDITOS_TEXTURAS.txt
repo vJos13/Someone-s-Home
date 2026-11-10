@@ -1,0 +1,6 @@
+Texturas de ambientCG.com (licencia CC0 1.0, dominio público; no requieren atribución):
+- PinturaRoja, PinturaBlanca  ← PaintedMetal004 (PinturaBlanca: color convertido a crema)
+- Goma                        ← Rubber004
+- Acero                       ← Metal032
+- TablasViejas                ← Planks023A
+El resto de las carpetas PBR se generan con Tools/Blender/generate_pbr_textures.py.

@@ -95,7 +95,8 @@ namespace SomeonesHome
 
             Vector3 d = route[Index] - transform.position;
             d.y = 0f;
-            if (d.magnitude < arriveRadius) { Index++; return; }
+            float radius = Index == route.Count - 1 ? Mathf.Min(arriveRadius, 0.3f) : arriveRadius;   // el último punto, preciso
+            if (d.magnitude < radius) { Index++; return; }
             if (player.InputLocked) { checkTimer = 0f; lastPos = transform.position; return; }
 
             var target = Quaternion.LookRotation(d);

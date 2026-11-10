@@ -7,6 +7,11 @@ ModelImporter:
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
+      name: M_Auto_Cromo
+    second: {fileID: 2100000, guid: d84e6229a61ddd30ab15010b99133a48, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
       name: M_Auto_Llanta
     second: {fileID: 2100000, guid: a6a6b777311c9ae20863de1316ddeb4d, type: 2}
   - first:
@@ -19,6 +24,11 @@ ModelImporter:
       assembly: UnityEngine.CoreModule
       name: M_Auto_Pintura
     second: {fileID: 2100000, guid: b8e736779a57d8e78b43d7bd78598f2d, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_Auto_Placa
+    second: {fileID: 2100000, guid: d396dee81284366f28d1215ca606af3c, type: 2}
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule

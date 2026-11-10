@@ -67,16 +67,18 @@ namespace SomeonesHome.EditorTools
             { "M_Prop_Celular",       new(null, new Color(0.02f, 0.02f, 0.02f), 0.8f) },
             { "M_Prop_Pantalla",      new(null, new Color(0.04f, 0.05f, 0.07f), 0.9f) },
             // Llegada, apagón y mañana.
-            { "M_Auto_Pintura",       new(null, new Color(0.82f, 0.79f, 0.7f), 0.55f, 0.2f) },
-            { "M_Auto_Rojo",          new(null, new Color(0.42f, 0.07f, 0.06f), 0.55f, 0.2f) },
-            { "M_Auto_Vidrio",        new(null, new Color(0.05f, 0.06f, 0.07f), 0.92f) },
-            { "M_Auto_Llanta",        new(null, new Color(0.04f, 0.04f, 0.04f), 0.15f) },
+            { "M_Auto_Pintura",       new("PinturaBlanca", Color.white) },
+            { "M_Auto_Rojo",          new("PinturaRoja",   new Color(0.8f, 0.75f, 0.75f)) },
+            { "M_Auto_Vidrio",        new(null, new Color(0.04f, 0.05f, 0.06f), 0.96f, 0.1f) },
+            { "M_Auto_Llanta",        new("Goma",          new Color(0.55f, 0.55f, 0.55f)) },
+            { "M_Auto_Cromo",         new("Acero",         Color.white) },
+            { "M_Auto_Placa",         new(null, new Color(0.85f, 0.85f, 0.8f), 0.4f) },
             { "M_Auto_Luz",           new(null, new Color(0.55f, 0.05f, 0.04f), 0.8f) },
             { "M_Prop_Papel",         new(null, new Color(0.9f, 0.88f, 0.78f), 0.1f) },
             { "M_Prop_Mochila",       new("Tela",          new Color(0.35f, 0.47f, 0.8f)) },
             { "M_Prop_Linterna",      new(null, new Color(0.85f, 0.6f, 0.1f), 0.6f) },
             { "M_Prop_Collar",        new(null, new Color(0.45f, 0.09f, 0.07f), 0.4f) },
-            { "M_Cobertizo_Madera",   new("MaderaVieja",   new Color(0.62f, 0.52f, 0.42f)) },
+            { "M_Cobertizo_Madera",   new("TablasViejas",  Color.white) },
             { "M_Prop_Bidon",         new(null, new Color(0.6f, 0.08f, 0.05f), 0.5f) },
         };
 

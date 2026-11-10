@@ -123,7 +123,7 @@ namespace SomeonesHome
             Log("Abriendo la puerta trasera");
             yield return Walk(false, V(91.9f, 60.9f));
             yield return Look(door.transform.position + new Vector3(0.5f, 1.1f, 0f), 0.3f);
-            yield return TryUse(3f);
+            if (!door.IsOpen) yield return TryUse(3f);      // quedó abierta desde la llegada
             yield return new WaitForSeconds(1.2f);
             yield return Walk(false, V(92f, 64.2f));
             yield return UseAt(props.trashBin, V(93.6f, 64.3f));
@@ -290,11 +290,11 @@ namespace SomeonesHome
                 yield return Look(props.trail[0].position, 0.5f);
                 yield return Walk(false, V(98.3f, 62.8f), V(95f, 64.6f), V(92f, 64.7f), V(88f, 65f), V(84f, 65.6f), V(81.2f, 66.6f),
                                   V(80.8f, 70f), V(81.2f, 76f), V(81.8f, 79.5f), V(82f, 82.3f));
-                yield return UseAt(props.collar, V(82f, 82.3f));
+                yield return UseAt(props.collar, V(82f, 82.9f));
                 yield return new WaitUntil(() => B() == "papa" && props.dadTruck.Available);
                 Log("Llegó papá: a la camioneta");
-                yield return Walk(false, V(81.5f, 75f), V(82.5f, 63f), V(82f, 52f), V(95.6f, 48.2f));
-                yield return UseAt(props.dadTruck, V(95.6f, 48.2f));
+                yield return Walk(false, V(81.5f, 75f), V(82.5f, 63f), V(82f, 51.5f), V(95.6f, 51.2f));
+                yield return UseAt(props.dadTruck, V(95.6f, 51.2f));
             }
 
             Log("Epílogo");

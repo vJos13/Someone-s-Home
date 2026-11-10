@@ -33,6 +33,7 @@ TILE = {
     "M_Casa_Lena": 1.0, "M_Columpio_Metal": 1.0, "M_Columpio_Madera": 1.0,
     "M_Prop_Galvanizado": 0.8, "M_Prop_SacoVerde": 0.6, "M_Prop_SacoRojo": 0.6, "M_Prop_Almohada": 0.5,
     "M_Prop_Mochila": 0.5, "M_Cobertizo_Madera": 1.2,
+    "M_Auto_Pintura": 1.6, "M_Auto_Rojo": 1.6, "M_Auto_Llanta": 0.35, "M_Auto_Cromo": 0.6,
 }
 PREVIEW = {  # solo para ver en Blender
     "M_Casa_Revestimiento": (0.8, 0.85, 0.85), "M_Casa_Moldura": (0.9, 0.9, 0.88), "M_Casa_Yeso": (0.85, 0.8, 0.7),
@@ -51,6 +52,7 @@ PREVIEW = {  # solo para ver en Blender
     "M_Auto_Llanta": (0.05, 0.05, 0.05), "M_Auto_Luz": (0.6, 0.05, 0.04), "M_Prop_Papel": (0.92, 0.9, 0.8),
     "M_Prop_Mochila": (0.25, 0.35, 0.6), "M_Prop_Linterna": (0.85, 0.6, 0.1), "M_Prop_Collar": (0.5, 0.1, 0.08),
     "M_Cobertizo_Madera": (0.5, 0.42, 0.33), "M_Prop_Bidon": (0.6, 0.08, 0.05),
+    "M_Auto_Cromo": (0.7, 0.7, 0.7), "M_Auto_Placa": (0.85, 0.85, 0.8),
 }
 
 
@@ -773,7 +775,7 @@ def pickup(name, cx, cz, south, paint):
     if not south:
         pts = pts[::-1]
     parts.append(prism(pts, (1.7, 0, 0), paint))
-    gprof = [(0.93, 1.05), (0.5, 1.62), (-0.62, 1.62), (-0.62, 1.05)]
+    gprof = [(0.955, 1.05), (0.525, 1.62), (-0.62, 1.62), (-0.62, 1.05)]
     gpts = [P(-0.86, y, z) for z, y in gprof]
     if not south:
         gpts = gpts[::-1]
@@ -789,24 +791,27 @@ def pickup(name, cx, cz, south, paint):
     for sx in (-1, 1):
         for z in (1.6, -1.55):
             parts.append(cyl(P(sx * 0.8, 0.38, z), P(sx * 1.0, 0.38, z), 0.38, "M_Auto_Llanta", verts=18))
-            parts.append(cyl(P(sx * 0.98, 0.38, z), P(sx * 1.01, 0.38, z), 0.2, "M_Casa_Metal", verts=14))
+            parts.append(cyl(P(sx * 0.98, 0.38, z), P(sx * 1.01, 0.38, z), 0.2, "M_Auto_Cromo", verts=14))
     # Paragolpes, parrilla, faros, calaveras, espejos, manijas.
     for z in (2.55, -2.55):
-        parts.append(B((0, 0.55, z), (1.86, 0.18, 0.15), "M_Casa_Metal", 0.02))
+        parts.append(B((0, 0.55, z), (1.86, 0.18, 0.15), "M_Auto_Cromo", 0.02))
     parts.append(B((0, 0.82, 2.51), (1.0, 0.25, 0.02), "M_Casa_Negro"))
     for sx in (-1, 1):
         parts.append(B((sx * 0.62, 0.85, 2.505), (0.3, 0.15, 0.03), "M_Casa_Esmalte"))
         parts.append(B((sx * 0.8, 1.15, -2.505), (0.12, 0.25, 0.03), "M_Auto_Luz"))
         parts.append(B((sx * 0.98, 1.3, 0.85), (0.14, 0.12, 0.05), "M_Casa_Negro"))
-        parts.append(B((sx * 0.905, 1.0, -0.2), (0.02, 0.03, 0.14), "M_Casa_Metal"))
+        parts.append(B((sx * 0.905, 1.0, -0.2), (0.02, 0.03, 0.14), "M_Auto_Cromo"))
         parts.append(B((sx * 0.902, 0.75, 0.97), (0.01, 0.5, 0.01), "M_Casa_Negro"))   # línea de puerta
+    # Placas.
+    parts.append(B((0, 0.75, -2.64), (0.32, 0.16, 0.012), "M_Auto_Placa"))
+    parts.append(B((0, 0.55, 2.64), (0.32, 0.16, 0.012), "M_Auto_Placa"))
     return join(name, parts, origin=(cx, 0, cz))
 
 
 def build_arrival_props():
     objs = []
     objs.append(pickup("Casa_Camioneta", 11.5, -3.5, True, "M_Auto_Pintura"))
-    objs.append(pickup("Casa_CamionetaPapa", 7.5, -12.5, False, "M_Auto_Rojo"))
+    objs.append(pickup("Casa_CamionetaPapa", 7.5, -9.0, False, "M_Auto_Rojo"))
 
     # Mochila (origen en la base; empieza en la caja de la camioneta de Tammy).
     mx, my, mz = 11.75, 1.0, -3.5 + 1.75
