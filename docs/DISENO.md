@@ -118,7 +118,13 @@ Sistema central: **TensionManager** + un conjunto de eventos. Regla de oro: **la
 - **Audio 3D** (`Spatial Blend = 1`) para que el jugador ubique de dónde viene cada sonido.
 - **La ausencia asusta:** los grillos se callan de golpe antes de un evento.
 
-### Ideas para los shaders propios (los hace el equipo en `_MyShaders/`)
+### Shaders propios (`Assets/_MyShaders/Graphs/`)
+Hechos:
+- **SG_Agua** (río): ondas con ruido animado y Fresnel profundo/superficie.
+- **SG_Criatura** (piel de La Cosa): PBR, borde Fresnel y respiración por vértice.
+- **SG_OjosCriatura**: emisión HDR que pulsa y brilla más cuando te mira de frente.
+
+Ideas para más adelante:
 - Ventana empañada o con escarcha donde aparece una silueta o una huella de mano.
 - Distorsión o "presencia" en el aire cuando algo está cerca.
 - Ojos que reflejan la linterna (el perro en la oscuridad).

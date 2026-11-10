@@ -30,16 +30,11 @@ namespace SomeonesHome.EditorTools
             { "M_ParedCasa",     ("Yeso",        new Vector2(3, 1)) },
             { "M_MetalPintado",  ("MetalOxidado", new Vector2(1, 2)) },
             { "M_Mantel",        ("Mantel",      new Vector2(1, 1)) },
-            // Base PBR de la criatura: el shader propio del equipo puede reutilizar estos mapas.
-            { "M_Creature",      ("PielCriatura", new Vector2(3, 3)) },
-            { "M_CreatureDark",  ("PielCriatura", new Vector2(3, 3)) },
+            // M_Creature / M_CreatureDark ya no van aquí: usan SG_Criatura (Assets/_MyShaders).
         };
 
         // Tinte opcional (multiplica el BaseMap). Por defecto blanco.
-        static readonly Dictionary<string, Color> Tints = new()
-        {
-            { "M_CreatureDark", new Color(0.45f, 0.4f, 0.38f) },
-        };
+        static readonly Dictionary<string, Color> Tints = new();
 
         // terrain layer → (set, tamaño del tile en metros)
         static readonly Dictionary<string, (string set, float tile)> TerrainLayers = new()

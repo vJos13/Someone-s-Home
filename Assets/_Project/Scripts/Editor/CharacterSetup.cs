@@ -37,7 +37,8 @@ namespace SomeonesHome.EditorTools
             { "M_Emily_Shirt",    ("Tela",      new Color(0.42f, 0.66f, 0.5f), 1f, 2f) },
         };
 
-        // Materiales de la criatura: se reutilizan los del greybox (el equipo les pone su shader).
+        // Materiales de la criatura: usan los shaders propios (SG_Criatura / SG_OjosCriatura).
+        const string CreatureMatDir = "Assets/_MyShaders/Materials";
         static readonly string[] CreatureMaterials = { "M_Creature", "M_CreatureDark", "M_CreatureEyes" };
 
         public static void ApplyAll()
@@ -76,7 +77,7 @@ namespace SomeonesHome.EditorTools
             }
             foreach (var name in CreatureMaterials)
             {
-                var m = AssetDatabase.LoadAssetAtPath<Material>($"{GreyboxMatDir}/{name}.mat");
+                var m = AssetDatabase.LoadAssetAtPath<Material>($"{CreatureMatDir}/{name}.mat");
                 if (m) remap[name] = m;
             }
             AssetDatabase.SaveAssets();

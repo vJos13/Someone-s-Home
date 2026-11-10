@@ -259,7 +259,7 @@ namespace SomeonesHome.EditorTools
         static void BuildRiver(Transform parent)
         {
             var water = GameObject.CreatePrimitive(PrimitiveType.Plane);
-            water.name = "Water_Rio (asignar shader de agua propio)";
+            water.name = "Water_Rio";
             water.transform.SetParent(parent);
             water.transform.position = new Vector3(W / 2, WaterY, (RiverNear + RiverFar) / 2);
             water.transform.localScale = new Vector3(W / 10f, 1, (RiverFar - RiverNear + 2) / 10f);
@@ -575,7 +575,7 @@ namespace SomeonesHome.EditorTools
             var vis = new GameObject("Visual").transform;
             vis.SetParent(root, false);
 
-            var skin = Mat("M_Creature (asignar shader propio)", new Color(0.23f, 0.19f, 0.16f), 0.25f);
+            var skin = Mat("M_Creature", new Color(0.23f, 0.19f, 0.16f), 0.25f);
             var dark = Mat("M_CreatureDark", new Color(0.1f, 0.08f, 0.07f), 0.2f);
             Vector3 P(float x, float y, float z) => root.TransformPoint(new Vector3(x, y, z));
 

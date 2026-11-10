@@ -32202,7 +32202,7 @@ GameObject:
   - component: {fileID: 1544107895}
   - component: {fileID: 1544107894}
   m_Layer: 0
-  m_Name: Water_Rio (asignar shader de agua propio)
+  m_Name: Water_Rio
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

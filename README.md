@@ -16,9 +16,21 @@ Diseño completo: [`docs/DISENO.md`](docs/DISENO.md) · Relato 1: [`docs/RELATO_
   ⚠️ SOBRESCRIBE la escena: no volver a ejecutarlo si se editó la escena a mano.
 - La casa y el columpio son modelos de Blender; las cajas del greybox siguen ahí **sin MeshRenderer** como colliders
   (no borrarlas). Lo mismo con las piedras del sendero (`Roca_xx`): el modelo va encima, el cubo es el collider.
-  Placeholders restantes: audio procedural
-  (`VO_*` necesitan voces grabadas), materiales `M_Creature`, `M_Water`, `M_CreatureEyes` (shaders propios;
-  `M_Creature` ya trae la textura PBR `PielCriatura` como base).
+  Placeholders restantes: audio procedural (`VO_*` necesitan voces grabadas).
+
+### Shaders propios (Shader Graph, URP)
+Están en `Assets/_MyShaders/Graphs/`:
+
+| Shader | Tipo | Material | Objeto en escena | Qué hace |
+|---|---|---|---|---|
+| `SG_Agua` | Lit, transparente | `M_Water` | `Water_Rio` | Dos capas de ruido que se desplazan forman las ondas (normal map). Un Fresnel mezcla el color profundo y el de superficie y vuelve el agua más opaca en ángulos rasantes. |
+| `SG_Criatura` | Lit | `M_Creature`, `M_CreatureDark` | La Cosa y el Acechador | Usa la textura PBR `PielCriatura` con tinte. Un borde Fresnel tenue la recorta contra la oscuridad y el vértice se desplaza con la normal para que "respire". |
+| `SG_OjosCriatura` | Unlit | `M_CreatureEyes` | Ojos de La Cosa | Emisión HDR con Bloom. Brilla más cuando mira de frente (1 − Fresnel) y pulsa lento. |
+
+Todas las propiedades (`_ColorProfundo`, `_Respiracion`, `_Brillo`, etc.) se pueden ajustar en el Inspector del material.
+Para editar un grafo: doble clic en el `.shadergraph`.
+Los grafos se generaron con `ShaderGraphBuilder.BuildAll()` (`Scripts/Editor/ShaderGraphBuilder/`).
+⚠️ Volver a ejecutarlo sobrescribe los cambios hechos a mano en los grafos.
 
 ### Texto y sonidos
 - Los diálogos **no tienen voz**: el texto sale letra a letra (TextMeshPro) con un "tic" generado por código
@@ -83,7 +95,7 @@ Assets/
 │   ├── Data/                 ScriptableObjects: Relatos y Events
 │   └── UI/                   Fonts · Sprites
 ├── _MyShaders/               Shader Graph propios (requisito de rúbrica)
-│   ├── Graphs/               SG_*.shadergraph
+│   ├── Graphs/               SG_Agua · SG_Criatura · SG_OjosCriatura
 │   ├── SubGraphs/
 │   └── Materials/            M_* que usan los shaders propios
 ├── _MyNarrative/             Pedido en la práctica S12
