@@ -1,133 +1,523 @@
-# Someone's Home
+# SOMEONE'S HOME
+### Across the River · Relato 01
 
-Juego de terror narrativo en primera persona basado en relatos reales con toques sobrenaturales.
-Hito 3 · *La Atmósfera Narrativa* · Desarrollo de Videojuegos (24UC00320).
+**Un juego de terror narrativo en primera persona donde el miedo no siempre viene de lo que ves, sino de aquello que intenta imitar lo que conoces.**
 
-- **Unity:** 6000.6.4f1 (usar EXACTAMENTE esta versión: otra versión reimporta y rompe archivos)
-- **Pipeline:** URP · **Plataforma de entrega:** WebGL
-- **Paquetes clave:** Cinemachine, Timeline, Shader Graph, Input System, AI Navigation
+<p align="center">
+  <em>Hito 3 — La Atmósfera Narrativa</em><br>
+  Desarrollo de Videojuegos · 24UC00320
+</p>
 
-Diseño completo: [`docs/DISENO.md`](docs/DISENO.md) · Relato 1: [`docs/RELATO_01_EL_RIO.md`](docs/RELATO_01_EL_RIO.md)
+---
 
-## Relato 1 · *Across the River* (jugable)
-- Escena: `Assets/_Project/Scenes/Hito3_Main.unity` → **Play**.
-- Controles: WASD/flechas · ratón · Shift correr · E interactuar · Tab celular · Q llamar (cuando se pide) · Esc soltar ratón · R reiniciar al final.
-- El greybox se generó con `Relato1Builder.Build()` (herramienta de editor, sin menú).
-  ⚠️ SOBRESCRIBE la escena: no volver a ejecutarlo si se editó la escena a mano.
-- La casa y el columpio son modelos de Blender; las cajas del greybox siguen ahí **sin MeshRenderer** como colliders
-  (no borrarlas). Lo mismo con las piedras del sendero (`Roca_xx`): el modelo va encima, el cubo es el collider.
-  Placeholders restantes: audio procedural
-  (`VO_*` necesitan voces grabadas), materiales `M_Creature`, `M_Water`, `M_CreatureEyes` (shaders propios;
-  `M_Creature` ya trae la textura PBR `PielCriatura` como base).
+## Sobre el proyecto
 
-### Texto y sonidos
-- Los diálogos **no tienen voz**: el texto sale letra a letra (TextMeshPro) con un "tic" generado por código
-  (se puede cambiar por un clip propio en `HUD → Type Blip`).
-- Sonidos externos: poner los `.wav/.ogg` en `Assets/_Project/Audio/SFX/` y arrastrarlos al `AudioSource`
-  correspondiente (si tiene clip, `ProceduralAudio` ya no genera el suyo).
-- Eventos "algo suena, ve a revisarlo": GameObject vacío donde debe sonar + componente **`SoundEvent`**
-  (clip, cuándo, pensamiento, objetivo, tensión). Se dispara solo o desde el `onEnter` de un `NarrativeTrigger`.
+**Someone's Home** es una experiencia de terror narrativo en primera persona basada en relatos reales, combinados con elementos sobrenaturales, exploración ambiental y tensión psicológica.
 
-### Arte generado en Blender (Blender 5.x, por código)
-| Qué | Script | Salida | Aplicar en Unity |
-|---|---|---|---|
-| Texturas PBR tileables (madera, roca, corteza, pasto, tierra, barro, yeso, tela, mezclilla, metal oxidado, mantel, piel de la criatura) | `Tools/Blender/generate_pbr_textures.py` | `Art/Textures/PBR/<Set>/T_<Set>_*.png` | `PBRMaterialSetup.Apply()` |
-| Personajes: Sam (sentado/de pie/corriendo), Tammy, Emily, la criatura (cabeza y mandíbula separadas) | `Tools/Blender/build_characters.py` (+ `Characters.blend` para retocar a mano) | `Art/Models/Characters/*.fbx` | `CharacterSetup.ApplyAll()` |
-| Naturaleza: pinos, álamos, árbol seco (3 LODs), artemisa, rocas, piedra plana del sendero, pasto, juncos, cerca, poste de luz, tronco caído, tocón | `Tools/Blender/build_nature.py` (+ `Nature.blend`) | `Art/Models/Nature/*.fbx` | `NatureSetup.ApplyAll()` |
-| Casa (revestimiento, techo de tejas, ventanas, porche, cocina amueblada, puerta con bisagra) y columpio (glider de metal oxidado) | `Tools/Blender/build_environment.py` (+ `Environment.blend`) | `Art/Models/Environment/*.fbx` | `EnvironmentSetup.ApplyAll()` |
+El jugador se adentra en escenarios aparentemente cotidianos que esconden situaciones inquietantes. La narrativa se desarrolla mediante la exploración, los diálogos, los sonidos ambientales, los eventos inesperados y las decisiones del jugador.
+
+El proyecto busca construir una atmósfera inmersiva en la que el entorno también cuenta la historia.
+
+### Información técnica
+
+| Característica | Detalle |
+|---|---|
+| Motor | Unity 6000.6.4f1 |
+| Renderizado | Universal Render Pipeline (URP) |
+| Plataforma objetivo | WebGL |
+| Perspectiva | Primera persona |
+| Género | Terror narrativo / Suspenso psicológico |
+| Lenguaje | C# |
+| Modelado 3D | Blender 5.x |
+| Control de versiones | Git / GitHub |
+
+> **Importante:** utiliza exactamente Unity `6000.6.4f1`. No abras el proyecto con otra versión, ya que podría provocar reimportaciones, modificaciones de assets o incompatibilidades.
+
+---
+
+## Relato 01 — Across the River
+
+<em>«Hay cosas que es mejor no mirar al otro lado del río».</em>
+
+<details>
+<summary><strong>Sinopsis</strong></summary>
+
+Alex y su hermano menor Sam llegan a una casa rural para pasar unos días lejos de la ciudad. Todo parece normal hasta que descubren una advertencia inquietante: después del anochecer, no deben abrirle la puerta a nadie.
+
+Durante una exploración cerca del río, los hermanos encuentran algo que no deberían haber visto. A partir de ese momento, la tranquilidad del lugar desaparece y una presencia comienza a acecharlos, utilizando voces y apariencias familiares para atraerlos.
+
+La noche pondrá a prueba su capacidad para distinguir entre lo real y lo que intenta engañarlos.
+
+</details>
+
+<details>
+<summary><strong>Características narrativas y jugables</strong></summary>
+
+- Exploración en primera persona.
+- Ambientación rural y escenarios de terror.
+- Sistema de interacción con objetos y elementos del entorno.
+- Diálogos con texto progresivo mediante TextMeshPro.
+- Sistema de tensión narrativa y eventos dinámicos.
+- Uso de teléfono celular para determinadas interacciones.
+- Secuencias cinematográficas mediante Timeline.
+- Eventos de sonido que orientan la exploración.
+- Criatura con comportamiento y presencia sobrenatural.
+- Diferentes desenlaces narrativos.
+
+</details>
+
+### Cómo ejecutar el relato
+
+1. Abrir el proyecto con Unity `6000.6.4f1`.
+2. Esperar a que finalice la importación de recursos.
+3. Abrir la escena:
+
+   `Assets/_Project/Scenes/Hito3_Main.unity`
+
+4. Presionar **Play**.
+
+### Controles
+
+| Tecla | Acción |
+|---|---|
+| W / A / S / D | Movimiento |
+| Flechas | Movimiento alternativo |
+| Ratón | Control de cámara |
+| Shift | Correr |
+| E | Interactuar |
+| Tab | Abrir celular |
+| Q | Llamar cuando la historia lo solicita |
+| Esc | Liberar el cursor |
+| R | Reiniciar al finalizar el relato |
+
+---
+
+## Tecnologías y herramientas
+
+El proyecto utiliza herramientas y sistemas de Unity para integrar sus componentes visuales, narrativos y jugables.
+
+| Tecnología | Uso |
+|---|---|
+| Unity 6 | Motor principal |
+| URP | Renderizado y configuración gráfica |
+| Cinemachine | Control y composición de cámaras |
+| Timeline | Secuencias cinematográficas |
+| Shader Graph | Desarrollo de shaders personalizados |
+| Input System | Gestión de controles |
+| AI Navigation | Navegación de personajes y agentes |
+| TextMeshPro | Sistema de diálogos y textos |
+| Blender 5.x | Modelado y generación de recursos 3D |
+| C# | Programación de sistemas y mecánicas |
+| Git / GitHub | Control de versiones y colaboración |
+
+---
+
+## Estructura del proyecto
+
+La organización del proyecto separa los sistemas principales, recursos artísticos, herramientas de desarrollo y elementos narrativos.
+
+```text
+Someone's-Home/
+│
+├── Assets/
+│   │
+│   ├── _Project/
+│   │   ├── Scenes/
+│   │   │   ├── Hito3_Main.unity
+│   │   │   ├── Relatos/
+│   │   │   └── Testing/
+│   │   │
+│   │   ├── Scripts/
+│   │   │   ├── Core/
+│   │   │   ├── Player/
+│   │   │   ├── Interaction/
+│   │   │   ├── Events/
+│   │   │   ├── Narrative/
+│   │   │   ├── Audio/
+│   │   │   ├── Cinematics/
+│   │   │   ├── UI/
+│   │   │   └── Editor/
+│   │   │
+│   │   ├── Art/
+│   │   │   ├── Models/
+│   │   │   ├── Materials/
+│   │   │   ├── Textures/
+│   │   │   └── Animations/
+│   │   │
+│   │   ├── Audio/
+│   │   │   ├── Ambience/
+│   │   │   ├── SFX/
+│   │   │   ├── Voices/
+│   │   │   ├── Music/
+│   │   │   └── Mixers/
+│   │   │
+│   │   ├── Prefabs/
+│   │   │   ├── Player/
+│   │   │   ├── Props/
+│   │   │   ├── Environment/
+│   │   │   ├── Events/
+│   │   │   └── Lighting/
+│   │   │
+│   │   ├── Timelines/
+│   │   ├── Rendering/
+│   │   ├── Data/
+│   │   └── UI/
+│   │
+│   ├── _MyShaders/
+│   │   ├── Graphs/
+│   │   ├── SubGraphs/
+│   │   └── Materials/
+│   │
+│   ├── _MyNarrative/
+│   │   ├── SetDressing/
+│   │   ├── Notes/
+│   │   └── Particles/
+│   │
+│   ├── ThirdParty/
+│   └── Settings/
+│
+├── Tools/
+│   └── Blender/
+│       ├── generate_pbr_textures.py
+│       ├── build_characters.py
+│       ├── build_environment.py
+│       └── build_nature.py
+│
+├── docs/
+│   ├── DISENO.md
+│   ├── RELATO_01_EL_RIO.md
+│   ├── Informe.pdf
+│   └── Storyboard/
+│
+└── README.md
+```
+
+---
+
+## Desarrollo artístico
+
+Los recursos visuales se generan mediante scripts de Python ejecutados en Blender 5.x. Esto permite mantener procesos de creación reproducibles y facilita la modificación de los modelos y materiales.
+
+### Texturas PBR
+
+Script: `Tools/Blender/generate_pbr_textures.py`
+
+Genera conjuntos de texturas tileables para materiales como:
+
+- Madera y corteza.
+- Roca y piedra.
+- Pasto, tierra y barro.
+- Yeso y tela.
+- Mezclilla y metal oxidado.
+- Mantel y piel de la criatura.
+
+Ubicación de salida:
+
+`Assets/_Project/Art/Textures/PBR/<Set>/`
+
+### Personajes
+
+Script: `Tools/Blender/build_characters.py`
+
+Genera los modelos de:
+
+- Sam: sentado, de pie y corriendo.
+- Tammy.
+- Emily.
+- La criatura: cabeza y mandíbula independientes.
+
+Ubicación de salida:
+
+`Assets/_Project/Art/Models/Characters/`
+
+### Entorno y naturaleza
+
+Scripts:
+- `Tools/Blender/build_environment.py`
+- `Tools/Blender/build_nature.py`
+
+Incluyen la generación de:
+
+- Casa rural y elementos interiores.
+- Columpio de metal oxidado.
+- Árboles y vegetación.
+- Rocas y piedras del sendero.
+- Cercas, postes, troncos y tocones.
+- Elementos complementarios del terreno.
+
+Ubicación de salida:
+
+`Assets/_Project/Art/Models/`
+
+### Generación de recursos
+
+Ejecutar desde la raíz del repositorio:
 
 ```bash
 blender -b --factory-startup --python Tools/Blender/generate_pbr_textures.py -- [--only Tela,Mantel]
+
 blender -b --factory-startup --python Tools/Blender/build_characters.py
+
 blender -b --factory-startup --python Tools/Blender/build_environment.py
+
 blender -b --factory-startup --python Tools/Blender/build_nature.py
 ```
-Los métodos de Unity están en `SomeonesHome.EditorTools` (Editor/); se ejecutan desde código (Unity Pipeline o un script de editor).
-`CharacterSetup.ReplaceInOpenScene()` cambia los modelos sin tocar el resto de la escena ni las referencias.
-`Relato1ExtrasSetup.Apply()` monta tareas, celular, acechador y noche (ejecutar después de `EnvironmentSetup.ApplyAll()`).
-`NatureSetup.Populate()` regenera todo el objeto `Naturaleza` (semilla fija → mismo resultado) y el pasto del terreno.
-Deja libres a propósito: casa, camino casa → sendero, sendero, columpio y el fondo de la criatura (su silueta debe
-recortarse contra el cielo). Pasto y juncos son *detalles del terreno* instanciados (baratos en WebGL).
 
-### Pruebas
-- `AutoPlaythrough` (Scripts/Dev): juega el relato completo solo (sirve para grabar el gameplay). Con `badEnding = true` abre la puerta de noche y prueba el final malo.
-- `AutoPlaytest` (Scripts/Dev): bot que camina rutas con el mismo `CharacterController` del jugador y avisa en consola
-  `[Playtest] Atascado…` / `Se cayó del mapa`. No va en la escena; se añade en Play desde código.
-- Mandos: `GamepadGuard` ignora un mando cuyo stick ya está desviado al conectarse (drift) hasta que se mueva.
-  En Linux, el DualShock 4 por Bluetooth puede mandar datos basura al Editor (camina solo / "pulsa" botones):
-  si pasa, desconéctenlo para probar. En WebGL el navegador lee el mando por otra vía.
+---
 
-## Estructura de carpetas
+## Herramientas de integración en Unity
 
+Los métodos de configuración y generación están organizados dentro del espacio de nombres `SomeonesHome.EditorTools`.
+
+| Herramienta | Función |
+|---|---|
+| `PBRMaterialSetup.Apply()` | Configuración de materiales PBR |
+| `CharacterSetup.ApplyAll()` | Aplicación de modelos de personajes |
+| `CharacterSetup.ReplaceInOpenScene()` | Sustitución de modelos en la escena abierta |
+| `EnvironmentSetup.ApplyAll()` | Integración de modelos del entorno |
+| `NatureSetup.ApplyAll()` | Configuración de recursos naturales |
+| `NatureSetup.Populate()` | Regeneración de vegetación y elementos del terreno |
+| `Relato1ExtrasSetup.Apply()` | Integración de tareas, celular, acechador y eventos nocturnos |
+| `Relato1Builder.Build()` | Generación inicial del greybox |
+
+> **Precaución:** `Relato1Builder.Build()` sobrescribe la escena. No debe ejecutarse nuevamente después de realizar modificaciones manuales en ella.
+
+`Relato1ExtrasSetup.Apply()` debe ejecutarse después de `EnvironmentSetup.ApplyAll()`.
+
+`NatureSetup.Populate()` regenera el objeto `Naturaleza` y la vegetación del terreno utilizando una semilla fija.
+
+### Consideraciones del escenario
+
+Algunos objetos del greybox se mantienen intencionalmente como colliders:
+
+- Las cajas originales de la casa.
+- Los elementos de colisión del columpio.
+- Las piedras `Roca_xx` del sendero.
+
+Los modelos visuales se colocan sobre estos objetos. No deben eliminarse los colliders ni sus referencias.
+
+También existen zonas que deben permanecer despejadas para conservar la composición visual y narrativa: la casa, el camino hacia el sendero, el sendero, el columpio y el fondo de la criatura.
+
+La vegetación y los juncos se instancian como detalles del terreno para reducir el coste de renderizado en WebGL.
+
+---
+
+## Narrativa y audio
+
+### Sistema de diálogos
+
+Los diálogos se presentan mediante TextMeshPro con un efecto de escritura progresiva.
+
+Actualmente no cuentan con voces grabadas. El sonido de escritura se genera mediante código y puede sustituirse desde:
+
+`HUD → Type Blip`
+
+### Integración de sonidos
+
+Los sonidos externos deben colocarse en:
+
+`Assets/_Project/Audio/SFX/`
+
+Formatos recomendados: `.wav` y `.ogg`.
+
+Cada sonido debe asignarse al `AudioSource` correspondiente. Si el `AudioSource` ya tiene un clip asignado, `ProceduralAudio` no genera uno adicional.
+
+### Eventos narrativos
+
+El componente `SoundEvent` permite crear acontecimientos sonoros que motivan al jugador a explorar determinadas zonas.
+
+Cada evento puede configurar:
+
+- Clip de audio.
+- Momento de activación.
+- Pensamiento o mensaje narrativo.
+- Objetivo asociado.
+- Nivel de tensión.
+
+Los eventos pueden activarse automáticamente o mediante el evento `onEnter` de un `NarrativeTrigger`.
+
+---
+
+## Pruebas y depuración
+
+El proyecto incluye herramientas de desarrollo para comprobar el funcionamiento del relato y detectar problemas durante las pruebas.
+
+### AutoPlaythrough
+
+Ubicación: `Scripts/Dev`
+
+Permite ejecutar automáticamente el relato completo. Es útil para comprobar la progresión narrativa y grabar partidas de demostración.
+
+Incluye la opción:
+
+```csharp
+badEnding = true;
 ```
-Assets/
-├── _Project/                 Todo lo propio del juego
-│   ├── Scenes/               Hito3_Main.unity (escena de entrega)
-│   │   ├── Relatos/          Una escena por relato
-│   │   └── Testing/          Escenas personales de prueba (Test_<Nombre>.unity)
-│   ├── Scripts/
-│   │   ├── Core/             GameManager, TensionManager, utilidades
-│   │   ├── Player/           Controlador FPS (CharacterController), linterna
-│   │   ├── Interaction/      Raycast de interacción, puertas, objetos revisables
-│   │   ├── Events/           Eventos de tensión ("algo suena, ve a revisar")
-│   │   ├── Narrative/        Tareas, diálogos, notas, progresión de noches
-│   │   ├── Audio/            Ambiente, pasos, sonidos 3D
-│   │   ├── Cinematics/       CinematicTrigger, control de Timeline
-│   │   ├── UI/               HUD mínimo, subtítulos, menú
-│   │   └── Editor/           Herramientas solo de editor
-│   ├── Art/                  Models · Materials (PBR) · Textures · Animations
-│   ├── Audio/                Ambience · SFX · Voices · Music · Mixers
-│   ├── Prefabs/              Player · Props · Environment · Events · Lighting · VFX
-│   ├── Timelines/            Secuencias de Timeline (intro, revelaciones, final)
-│   ├── Rendering/            VolumeProfiles (post-proceso) · Lighting (lightmaps/settings)
-│   ├── Data/                 ScriptableObjects: Relatos y Events
-│   └── UI/                   Fonts · Sprites
-├── _MyShaders/               Shader Graph propios (requisito de rúbrica)
-│   ├── Graphs/               SG_*.shadergraph
-│   ├── SubGraphs/
-│   └── Materials/            M_* que usan los shaders propios
-├── _MyNarrative/             Pedido en la práctica S12
-│   ├── SetDressing/          Prefabs de las 3 capas narrativas
-│   ├── Notes/                Notas, periódicos, fotos del entorno
-│   └── Particles/            Polvo en haces de luz, niebla, etc.
-├── ThirdParty/               Packs importados (Kenney, Quaternius, ambientCG…)
-└── Settings/                 Assets de URP (no tocar sin avisar)
-docs/                         Diseño, informe PDF, storyboard
+
+Esta configuración permite probar el final alternativo abriendo la puerta durante la noche.
+
+### AutoPlaytest
+
+Ubicación: `Scripts/Dev`
+
+Permite comprobar rutas y desplazamientos mediante un bot que utiliza el mismo `CharacterController` del jugador.
+
+Detecta situaciones como:
+
+- Personaje atascado.
+- Caídas fuera del mapa.
+- Problemas de navegación.
+
+Los mensajes de diagnóstico aparecen en la consola con el prefijo `[Playtest]`.
+
+No forma parte de la escena de entrega: se incorpora durante las pruebas mediante código.
+
+### Compatibilidad con mandos
+
+El componente `GamepadGuard` ignora inicialmente mandos cuyos sticks presentan desviación al conectarse, evitando movimientos involuntarios.
+
+**Nota para Linux:** algunos mandos DualShock 4 conectados por Bluetooth pueden enviar entradas incorrectas al Editor de Unity. Si el personaje se mueve solo o se activan botones involuntariamente, desconectar el mando y repetir la prueba.
+
+En WebGL, la lectura del mando se realiza mediante la API del navegador.
+
+---
+
+## Instalación y ejecución
+
+### Requisitos
+
+- Unity Hub.
+- Unity `6000.6.4f1`.
+- Módulo de compilación WebGL.
+- Git.
+- Blender 5.x (para regenerar recursos artísticos).
+
+### Clonar el repositorio
+
+```bash
+git clone <URL_DEL_REPOSITORIO>
+cd Someone's-Home
 ```
 
-### Convenciones de nombres
-| Tipo | Prefijo | Ejemplo |
+### Abrir el proyecto
+
+1. Iniciar Unity Hub.
+2. Seleccionar **Add project from disk**.
+3. Elegir la carpeta del repositorio.
+4. Abrir con Unity `6000.6.4f1`.
+5. Esperar a que termine la importación.
+6. Abrir `Assets/_Project/Scenes/Hito3_Main.unity`.
+7. Presionar **Play**.
+
+### Compilación para WebGL
+
+1. Abrir `File → Build Profiles`.
+2. Seleccionar Web.
+3. Comprobar que la escena principal esté incluida en la compilación.
+4. Verificar los ajustes de URP y los recursos.
+5. Ejecutar **Build**.
+
+---
+
+## Flujo de trabajo colaborativo
+
+El proyecto utiliza Git y GitHub para organizar el desarrollo en equipo.
+
+### Reglas de colaboración
+
+1. No mover ni renombrar archivos desde el explorador del sistema. Utilizar la ventana **Project** de Unity para preservar los archivos `.meta`.
+2. Una sola persona debe modificar `Hito3_Main.unity` a la vez.
+3. Para desarrollar y probar cambios individuales, utilizar escenas independientes dentro de `Scenes/Testing/`.
+4. Convertir los elementos terminados en prefabs cuando corresponda.
+5. Trabajar mediante ramas `feature/` y fusionar los cambios a través de Pull Requests.
+6. Antes de subir cambios, ejecutar `git pull` y comprobar que Unity no presente errores en la consola.
+
+### Convención de ramas
+
+```text
+main
+├── feature/player-controller
+├── feature/shader-presencia
+├── feature/narrative-system
+├── feature/environment
+└── feature/audio-design
+```
+
+### Convención de commits
+
+Se utiliza un formato basado en Conventional Commits:
+
+```text
+feat(player): implementar movimiento en primera persona
+fix(lighting): corregir iluminación del sendero
+art(props): integrar modelos del entorno
+feat(narrative): agregar evento del río
+refactor(audio): mejorar sistema de sonidos
+```
+
+### Convención de nombres
+
+| Recurso | Prefijo | Ejemplo |
 |---|---|---|
 | Material | `M_` | `M_MaderaVieja` |
 | Shader Graph | `SG_` | `SG_PresenciaDistorsion` |
 | Prefab | `P_` | `P_TelefonoFijo` |
-| Textura | `T_` + sufijo de mapa | `T_Madera_BaseMap`, `T_Madera_Normal` |
+| Textura | `T_` | `T_Madera_BaseMap` |
 | Timeline | `TL_` | `TL_RevelacionGranero` |
 | Volume Profile | `VP_` | `VP_Noche1` |
-| Audio | `SFX_` / `AMB_` / `VO_` | `SFX_GolpePuerta` |
+| Audio | `SFX_`, `AMB_`, `VO_` | `SFX_GolpePuerta` |
 
-## Flujo de trabajo en equipo (Git)
+### Roles de desarrollo
 
-1. **Nunca muevan/renombren archivos desde el explorador**: siempre desde la ventana *Project* de Unity (los `.meta` deben viajar juntos).
-2. **Una persona por escena a la vez.** Los conflictos en `.unity` son casi imposibles de resolver. Avisen en el grupo antes de abrir `Hito3_Main.unity`.
-   - Para probar cosas usen `Scenes/Testing/Test_<SuNombre>.unity` y conviertan lo que hagan en **prefabs**.
-3. **Ramas:** `main` siempre funciona. Trabajen en `feature/<tema>` (ej. `feature/player-controller`, `feature/shader-presencia`) y fusionen con Pull Request.
-4. Antes de hacer push: `git pull`, abrir Unity, verificar que **no hay errores en consola**.
-5. Commits con formato: `feat(player): ...`, `fix(lighting): ...`, `art(props): ...`.
-6. Entrega final: `git tag U3-Hito3-Final && git push origin --tags`.
-
-### Roles (según práctica S12)
-| Rol | Responsable de |
+| Rol | Responsabilidad |
 |---|---|
-| Set Dresser | Props, capas narrativas, colliders |
-| Lighting Artist | Luces, bake, Volume / post-proceso |
-| Gameplay Dev | Player, eventos, triggers, Cinemachine/Timeline |
-| Tech Artist | Shader Graph propios, materiales PBR |
+| Set Dresser | Props, ambientación y colliders |
+| Lighting Artist | Iluminación, bake y postprocesado |
+| Gameplay Developer | Jugador, eventos, triggers y Timeline |
+| Technical Artist | Shader Graph, materiales y texturas PBR |
 
-### Merge de escenas/prefabs (opcional, recomendado)
-Configurar UnityYAMLMerge una vez en cada PC (`~/.gitconfig`):
-```
+### Unity Smart Merge (opcional)
+
+Se recomienda configurar UnityYAMLMerge para facilitar la resolución de conflictos en archivos compatibles.
+
+Agregar a `~/.gitconfig`:
+
+```ini
 [merge "unityyamlmerge"]
     name = Unity SmartMerge
     driver = '<RutaUnity>/Editor/Data/Tools/UnityYAMLMerge' merge -p %O %B %A %A
 ```
+
+---
+
+## Documentación adicional
+
+La documentación complementaria del proyecto se encuentra en la carpeta `docs/`.
+
+| Documento | Contenido |
+|---|---|
+| `DISENO.md` | Diseño general y estructura de la experiencia |
+| `RELATO_01_EL_RIO.md` | Guion y desarrollo narrativo del primer relato |
+| `Informe.pdf` | Documentación académica |
+| `Storyboard/` | Referencias visuales y planificación de escenas |
+
+---
+
+## Entrega
+
+**Hito 3 — La Atmósfera Narrativa**
+
+Proyecto desarrollado para el curso de Desarrollo de Videojuegos, orientado a la creación de una experiencia de terror narrativo en Unity.
+
+```bash
+git tag U3-Hito3-Final
+git push origin --tags
+```
+
+---
+
+<p align="center">
+  <strong>SOMEONE'S HOME</strong><br>
+  <em>Sometimes, the thing outside knows your name.</em><br><br>
+  Desarrollo de Videojuegos · 24UC00320
+</p>
