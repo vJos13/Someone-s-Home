@@ -53,7 +53,8 @@ namespace SomeonesHome
         public float CricketFactor { get; private set; } = 1f;
 
         Atmosphere atmo;
-        System.Random rng;
+        System.Random rngField;
+        System.Random rng => rngField ??= new System.Random(seed);   // también se pierde al recargar scripts
         float coverT, windT, rainT, fogT = 1f, fog = 1f, nextChange, windAngle, indoor;
         NightMode.Phase lastPhase = (NightMode.Phase)(-1);
 
@@ -73,8 +74,6 @@ namespace SomeonesHome
 
         // Lluvia
         ParticleSystem rain;
-        ParticleSystem.EmissionModule rainEmission;
-        ParticleSystem.VelocityOverLifetimeModule rainVelocity;
         Material rainMat;
 
         // Sonido
@@ -88,7 +87,6 @@ namespace SomeonesHome
         void Start()
         {
             atmo = GetComponent<Atmosphere>() ? GetComponent<Atmosphere>() : Atmosphere.Instance;
-            rng = new System.Random(seed);
             windAngle = R(0f, 360f);
             if (clouds) BuildDome();
             if (cloudShadows) BuildCookie();
@@ -343,14 +341,14 @@ namespace SomeonesHome
             shape.shapeType = ParticleSystemShapeType.Box;
             shape.scale = new Vector3(34f, 0.5f, 34f);
 
-            rainVelocity = rain.velocityOverLifetime;
+            var rainVelocity = rain.velocityOverLifetime;
             rainVelocity.enabled = true;
             rainVelocity.space = ParticleSystemSimulationSpace.World;
             rainVelocity.x = new ParticleSystem.MinMaxCurve(0f, 0f);
             rainVelocity.y = new ParticleSystem.MinMaxCurve(-10.5f, -8.5f);
             rainVelocity.z = new ParticleSystem.MinMaxCurve(0f, 0f);
 
-            rainEmission = rain.emission;
+            var rainEmission = rain.emission;
             rainEmission.rateOverTime = 0f;
 
             // Las gotas mueren al tocar algo: no llueve dentro de la casa ni a través de los aleros.
@@ -383,6 +381,9 @@ namespace SomeonesHome
                 rain.transform.position = cam.transform.position + Vector3.up * 14f - lean * 1.5f
                                         + cam.transform.forward * 4f;       // más gotas donde se mira
             // Todas las curvas en el mismo modo (dos constantes), si no Unity se queja.
+            // Los módulos se piden cada vez: guardados en campos se rompen si Unity recarga los scripts en Play.
+            var rainVelocity = rain.velocityOverLifetime;
+            var rainEmission = rain.emission;
             rainVelocity.x = new ParticleSystem.MinMaxCurve(lean.x * 0.85f, lean.x * 1.15f);
             rainVelocity.z = new ParticleSystem.MinMaxCurve(lean.z * 0.85f, lean.z * 1.15f);
             rainEmission.rateOverTime = Rain * 1500f;
