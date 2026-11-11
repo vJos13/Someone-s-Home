@@ -24,6 +24,11 @@ namespace SomeonesHome
 
         public bool IsNight { get; private set; }
 
+        public enum Phase { Dusk, Night, Morning }
+        public Phase CurrentPhase { get; private set; } = Phase.Dusk;
+        /// <summary>Se dispara después de cambiar la luz (Atmosphere la toma como nuevo punto de partida).</summary>
+        public static event System.Action<NightMode, Phase> PhaseChanged;
+
         // Estado del atardecer (para la mañana).
         bool captured;
         Color daySunColor, dayAmbient, dayFog, daySky, dayEquator, dayGround;
@@ -84,6 +89,8 @@ namespace SomeonesHome
                 RenderSettings.skybox = sky;
             }
             DynamicGI.UpdateEnvironment();
+            CurrentPhase = Phase.Night;
+            PhaseChanged?.Invoke(this, CurrentPhase);
         }
 
         /// <summary>La mañana siguiente: luz pálida y baja desde el este, neblina fría.</summary>
@@ -116,6 +123,8 @@ namespace SomeonesHome
                 RenderSettings.skybox = sky;
             }
             DynamicGI.UpdateEnvironment();
+            CurrentPhase = Phase.Morning;
+            PhaseChanged?.Invoke(this, CurrentPhase);
         }
     }
 }
