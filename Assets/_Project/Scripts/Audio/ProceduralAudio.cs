@@ -11,7 +11,7 @@ namespace SomeonesHome
     public class ProceduralAudio : MonoBehaviour
     {
         // Los nuevos van AL FINAL: el enum se guarda como número en la escena.
-        public enum Kind { Wind, River, Crickets, Whisper, Creak, Bark, Knock, Buzz, Ring, Rattle, Step, Horn, Click }
+        public enum Kind { Wind, River, Crickets, Whisper, Creak, Bark, Knock, Buzz, Ring, Rattle, Step, Horn, Click, Rain, Thunder, Birds }
 
         [SerializeField] Kind kind;
         [SerializeField] float seconds = 6f;
@@ -223,6 +223,71 @@ namespace SomeonesHome
                     {
                         float t = i / (float)Rate;
                         data[i] = (Rand() * Mathf.Exp(-t * 300f) + Mathf.Sin(t * 2f * Mathf.PI * 90f) * Mathf.Exp(-t * 25f) * 0.6f) * 0.8f;
+                    }
+                    break;
+                }
+                case Kind.Rain:
+                {
+                    // Lluvia: ruido "siseante" (agudo) + gotas sueltas que golpean hojas y techo.
+                    float lp = 0, prev = 0;
+                    for (int i = 0; i < n; i++)
+                    {
+                        float t = i / (float)Rate;
+                        float w = Rand();
+                        lp += (w - lp) * 0.45f;
+                        float hiss = (w - prev) * 0.35f + lp * 0.25f;
+                        prev = w;
+                        float drop = 0f;
+                        if (rng.NextDouble() < 0.0016) drop = 0.6f + (float)rng.NextDouble() * 0.4f;
+                        data[i] = hiss * (0.85f + 0.15f * Mathf.Sin(t * 0.9f)) + drop * Rand();
+                    }
+                    // Fundido en los bordes para que el bucle no haga clic.
+                    int edge = Mathf.Min(n / 4, Rate / 5);
+                    for (int i = 0; i < edge; i++) { float k = i / (float)edge; data[i] *= k; data[n - 1 - i] *= k; }
+                    break;
+                }
+                case Kind.Thunder:
+                {
+                    // Trueno lejano: retumbo grave (ruido marrón) que crece rápido y decae con ondulaciones.
+                    float b = 0, lp = 0;
+                    for (int i = 0; i < n; i++)
+                    {
+                        float t = i / (float)Rate;
+                        b = Mathf.Clamp(b + Rand() * 0.04f, -1f, 1f) * 0.999f;
+                        lp += (b - lp) * 0.08f;
+                        float env = Mathf.Min(1f, t / 0.35f) * Mathf.Exp(-t * 0.75f)
+                                  * (0.65f + 0.35f * Mathf.Abs(Mathf.Sin(t * 2.3f + Mathf.Sin(t * 0.7f) * 3f)));
+                        data[i] = Mathf.Clamp(lp * env * 3.2f, -1f, 1f);
+                    }
+                    break;
+                }
+                case Kind.Birds:
+                {
+                    // Pájaros a lo lejos: trinos cortos (barridos de 2–5 kHz) agrupados en frases.
+                    float next = 0.3f, start = -1f, f0 = 3000f, f1 = 4000f, len = 0.1f, ph = 0;
+                    int left = 0;
+                    for (int i = 0; i < n; i++)
+                    {
+                        float t = i / (float)Rate;
+                        if (t >= next)
+                        {
+                            if (left <= 0) left = 2 + rng.Next(5);
+                            left--;
+                            start = t;
+                            f0 = 2200f + (float)rng.NextDouble() * 2500f;
+                            f1 = f0 + ((float)rng.NextDouble() - 0.3f) * 1800f;
+                            len = 0.05f + (float)rng.NextDouble() * 0.12f;
+                            next = t + len + (left > 0 ? 0.04f + (float)rng.NextDouble() * 0.1f : 0.8f + (float)rng.NextDouble() * 2.2f);
+                        }
+                        float d = t - start;
+                        float v = 0f;
+                        if (start >= 0f && d < len)
+                        {
+                            float u = d / len;
+                            ph += Mathf.Lerp(f0, f1, u) / Rate;
+                            v = Mathf.Sin(ph * 2f * Mathf.PI) * Mathf.Sin(u * Mathf.PI) * (0.8f + 0.2f * Mathf.Sin(d * 2f * Mathf.PI * 38f));
+                        }
+                        data[i] = v * 0.22f;
                     }
                     break;
                 }

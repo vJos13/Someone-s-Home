@@ -86,6 +86,27 @@ namespace SomeonesHome
         /// <summary>Paso actual de la historia (lo lee el bot de pruebas).</summary>
         public string Beat { get; private set; } = "intro";
 
+        /// <summary>
+        /// Botón "Saltar historia" (GameMenu): disponible durante las tarjetas de la intro y la charla de llegada,
+        /// hasta que el jugador recibe el control. Saltar NO se salta código: las mismas corrutinas corren con el
+        /// HUD en avance rápido (sin tarjetas ni líneas), así Sam igual sale al columpio, la puerta se destraba, etc.
+        /// </summary>
+        public bool CanSkipIntro { get; private set; }
+        public bool IntroSkipped { get; private set; }
+
+        public void SkipIntro()
+        {
+            if (!CanSkipIntro || IntroSkipped) return;
+            IntroSkipped = true;
+            hud.BeginFastForward();
+        }
+
+        void EndIntroSkip()
+        {
+            CanSkipIntro = false;
+            if (IntroSkipped) hud.EndFastForward();
+        }
+
         Vector3 P => player.transform.position;
 
         IEnumerator Start()
@@ -112,6 +133,7 @@ namespace SomeonesHome
             hud.SetFadeInstant(1f);
             bool arrival = props && props.arrivalSpawn;
             if (arrival) PlaceArrival();
+            CanSkipIntro = true;
             if (!skipIntro)
             {
                 yield return hud.ShowCard("SOMEONE'S HOME", 2.5f);
@@ -125,6 +147,7 @@ namespace SomeonesHome
 
             // ── 0b · LA LLEGADA ───────────────────────────────────────
             if (arrival) yield return Arrival();
+            else EndIntroSkip();
 
             // ── 1 · LA COCINA (todo normal… por ahora) ────────────────
             Beat = "cocina";
@@ -363,6 +386,7 @@ namespace SomeonesHome
             yield return hud.SayAndWait(brotherName, "¡Voy a verlo!");
             if (brother && props.samRunOff != null && props.samRunOff.Length > 0) StartCoroutine(SamRunsOff());
             yield return hud.SayAndWait("Tammy", $"¡{brotherName}! …No te alejes mucho. Y vuelve antes de que oscurezca.");
+            EndIntroSkip();                                // aquí termina la intro: lo que sigue es jugable
             Lock(false, false);
             StartCoroutine(GoInsideWhenUnseen());
 

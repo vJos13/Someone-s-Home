@@ -37,9 +37,33 @@ namespace SomeonesHome
 
         public bool IsSpeaking => subtitleRoutine != null;
 
+        /// <summary>
+        /// "Saltar historia": mientras está activo, las tarjetas, fundidos y líneas de diálogo terminan al instante
+        /// (las corrutinas del relato siguen su curso, así que ningún evento queda sin ejecutar).
+        /// </summary>
+        public bool FastForward { get; private set; }
+
+        // Prompt de interacción y mira
+        CanvasGroup promptGroup;
+        TMP_Text crosshair;
+        bool promptWanted;
+        float crosshairPulse;
+        FirstPersonController player;
+
         void Awake()
         {
             Instance = this;
+            GameSettings.EnsureLoaded();
+            if (promptText)
+            {
+                if (!promptText.TryGetComponent(out promptGroup)) promptGroup = promptText.gameObject.AddComponent<CanvasGroup>();
+                promptGroup.alpha = 0f;
+                promptGroup.blocksRaycasts = false;
+            }
+            var mira = transform.Find("Mira");
+            if (mira) crosshair = mira.GetComponent<TMP_Text>();
+            // Menú de pausa, configuración y "Saltar historia" (UI propia, construida por código).
+            if (!FindAnyObjectByType<GameMenu>()) new GameObject("GameMenu").AddComponent<GameMenu>().Init(this);
             if (subtitleGroup) subtitleGroup.alpha = 0f;
             if (objectiveGroup) objectiveGroup.alpha = 0f;
             if (promptText) promptText.text = "";
@@ -80,9 +104,9 @@ namespace SomeonesHome
             int total = label.textInfo.characterCount;
             float shown = 0f;
             int last = 0;
-            while (last < total)
+            while (last < total && !FastForward)
             {
-                shown += cps * Time.deltaTime;
+                shown += cps * GameSettings.TextSpeed * Time.deltaTime;
                 int now = Mathf.Min(total, Mathf.FloorToInt(shown));
                 for (int i = last; i < now; i++)
                 {
@@ -104,9 +128,42 @@ namespace SomeonesHome
         }
 
         // ── Prompt ──
+        /// <summary>Texto libre en el prompt central (compatibilidad).</summary>
         public void SetPrompt(string text)
         {
-            if (promptText) promptText.text = text ?? "";
+            if (!promptText) return;
+            promptWanted = !string.IsNullOrEmpty(text);
+            if (promptWanted) promptText.text = text;
+        }
+
+        /// <summary>Prompt contextual de interacción: tecla en recuadro + acción. null lo oculta (con fundido).</summary>
+        public void SetInteraction(string action)
+        {
+            if (string.IsNullOrEmpty(action)) { SetPrompt(null); return; }
+            SetPrompt($"<mark=#FFFFFF26 padding=\"14,14,6,6\"><b> E </b></mark>   <color=#D9D9D9>{action}</color>");
+        }
+
+        /// <summary>Pequeño pulso de la mira al interactuar (feedback).</summary>
+        public void PulseInteraction() => crosshairPulse = 1f;
+
+        void Start() => player = FindAnyObjectByType<FirstPersonController>();
+
+        void Update()
+        {
+            float dt = Time.unscaledDeltaTime;
+            bool cinematic = player && player.InputLocked && player.LookLocked;
+            if (promptGroup)
+                promptGroup.alpha = Mathf.MoveTowards(promptGroup.alpha, promptWanted && !cinematic ? 1f : 0f, dt * 7f);
+            if (crosshair)
+            {
+                crosshairPulse = Mathf.MoveTowards(crosshairPulse, 0f, dt * 4f);
+                float a = cinematic || GamePause.IsPaused ? 0f : promptWanted ? 0.95f : 0.45f;
+                var c = crosshair.color;
+                c.a = Mathf.MoveTowards(c.a, a, dt * 5f);
+                crosshair.color = c;
+                float s = (promptWanted ? 1.35f : 1f) + crosshairPulse * 0.5f;
+                crosshair.transform.localScale = Vector3.Lerp(crosshair.transform.localScale, Vector3.one * s, dt * 12f);
+            }
         }
 
         // ── Objetivo ──
@@ -127,6 +184,7 @@ namespace SomeonesHome
         /// <summary>Encola una línea. speaker vacío = pensamiento del jugador (cursiva).</summary>
         public void Say(string speaker, string line, float duration = -1f)
         {
+            if (FastForward) return;
             // duration = tiempo de lectura DESPUÉS de que termina de escribirse.
             if (duration <= 0f) duration = Mathf.Clamp(0.9f + line.Length * 0.03f, 1.4f, 4f);
             queue.Enqueue((speaker, line, duration));
@@ -147,6 +205,7 @@ namespace SomeonesHome
                 string text = string.IsNullOrEmpty(speaker)
                     ? $"<i>{line}</i>"
                     : $"<b><color=#E8C27A>{speaker}:</color></b> {line}";
+                if (GameSettings.SubtitleBackground) text = $"<mark=#000000B0 padding=\"18,18,8,8\">{text}</mark>";
                 subtitleText.text = "";
                 yield return FadeGroup(subtitleGroup, 1f, 0.15f);
                 yield return Typewrite(subtitleText, text, charsPerSecond);
@@ -157,7 +216,20 @@ namespace SomeonesHome
         }
 
         // ── Fundido y tarjetas ──
-        public IEnumerator Fade(float to, float time) => FadeGroup(fader, to, time);
+        public IEnumerator Fade(float to, float time) => FadeGroup(fader, to, FastForward ? Mathf.Min(time, 0.6f) : time);
+
+        /// <summary>Corta lo que se esté mostrando (subtítulos, tarjeta) y deja correr el relato sin texto.</summary>
+        public void BeginFastForward()
+        {
+            FastForward = true;
+            queue.Clear();
+            if (subtitleRoutine != null) { StopCoroutine(subtitleRoutine); subtitleRoutine = null; }
+            if (subtitleGroup) subtitleGroup.alpha = 0f;
+            if (subtitleText) subtitleText.text = "";
+            if (cardText) { cardText.text = ""; var c = cardText.color; c.a = 0f; cardText.color = c; }
+        }
+
+        public void EndFastForward() => FastForward = false;
 
         public void SetFadeInstant(float alpha)
         {
@@ -167,12 +239,12 @@ namespace SomeonesHome
         /// <summary>Muestra un texto centrado sobre el negro (intro, epílogo, créditos).</summary>
         public IEnumerator ShowCard(string text, float hold)
         {
-            if (!cardText) yield break;
+            if (!cardText || FastForward) yield break;
             var c = cardText.color;
             c.a = 1f; cardText.color = c;
             yield return Typewrite(cardText, text, cardCharsPerSecond);
-            yield return new WaitForSeconds(hold);
-            for (float t = 1f; t > 0f; t -= Time.deltaTime / 1.2f) { c.a = t; cardText.color = c; yield return null; }
+            for (float t = 0f; t < hold && !FastForward; t += Time.deltaTime) yield return null;
+            for (float t = 1f; t > 0f && !FastForward; t -= Time.deltaTime / 1.2f) { c.a = t; cardText.color = c; yield return null; }
             c.a = 0f; cardText.color = c;
             cardText.text = "";
         }
