@@ -204,13 +204,15 @@ namespace SomeonesHome
             hud.Say("", "El patio trasero en realidad es un campo.");
 
             // ── 5 · LA COLINA ─────────────────────────────────────────
-            yield return WaitTrigger(hillTopTrigger);
+            // Si baja la ladera por otro lado (o rápido) y se salta el trigger, igual sigue.
+            yield return WaitTrigger(hillTopTrigger, () => P.z > 106f);
             Beat = "colina";
             hud.SetObjective("Baja por las rocas");
             hud.Say("", "Una colina estúpidamente empinada. Hay que ir pisando las rocas… o sales volando.");
 
             // ── 6 · EL COLUMPIO ───────────────────────────────────────
-            yield return WaitTrigger(swingTrigger);
+            // El trigger está frente al columpio; si llega por un costado o por detrás de Sam, basta con acercarse.
+            yield return WaitTrigger(swingTrigger, () => NearBrother(9f));
             Beat = "columpio";
             hud.SetObjective(null);
             tension.SetTarget(0.15f);
@@ -227,7 +229,7 @@ namespace SomeonesHome
             while (GazeUtility.FlatAngleTo(eye, voiceFromField.transform.position) > 45f)
             {
                 waited += Time.deltaTime;
-                if (waited > 7f) { hud.Say("", "¿Emily? Venía de arriba, del campo."); waited = -999f; }
+                if (waited > 7f) { hud.Say("", "¿Emily? Venía de arriba, del campo."); waited = -5f; }
                 yield return null;
             }
 
@@ -241,7 +243,13 @@ namespace SomeonesHome
             tension.SetTarget(0.4f);
             hud.Say("", "Siempre he tenido mucha imaginación. Seguro fue eso.");
 
-            while (GazeUtility.FlatAngleTo(eye, brother.transform.position) > 40f) yield return null;
+            float lost = 0f;
+            while (GazeUtility.FlatAngleTo(eye, brother.transform.position) > 40f)
+            {
+                lost += Time.deltaTime;
+                if (lost > 6f) { hud.Say("", $"¿Y {brotherName}? Ya no se escucha el columpio."); lost = -6f; }
+                yield return null;
+            }
 
             // ── 9 · LA REVELACIÓN (Cinemachine) ───────────────────────
             Beat = "revelacion";
@@ -267,7 +275,13 @@ namespace SomeonesHome
             creature.StartSpeaking();
             tension.SetTarget(0.75f);
 
-            while (!GazeUtility.IsLookingAt(eye, creature.LookTarget.position, 20f, false)) yield return null;
+            float notLooking = 0f;
+            while (!GazeUtility.IsLookingAt(eye, creature.LookTarget.position, 20f, false))
+            {
+                notLooking += Time.deltaTime;
+                if (notLooking > 6f) { hud.Say("", "Tengo que volver a mirar. Al otro lado del río."); notLooking = -6f; }
+                yield return null;
+            }
             Beat = "habla";
             tension.SetTarget(0.95f);
             hud.Say("???", $"…{Stretch(playerName)}…", 3f);
@@ -1191,9 +1205,20 @@ namespace SomeonesHome
             creature.Vanish();
         }
 
-        IEnumerator WaitTrigger(NarrativeTrigger trigger)
+        bool NearBrother(float radius)
         {
-            if (!trigger) yield break;
+            Vector3 d = P - brother.transform.position;
+            return Mathf.Abs(d.y) < 4f && new Vector2(d.x, d.z).magnitude < radius;
+        }
+
+        /// <summary>Espera a que el jugador entre al trigger, o a que se cumpla 'orElse' (respaldo si lo esquiva).</summary>
+        IEnumerator WaitTrigger(NarrativeTrigger trigger, Func<bool> orElse = null)
+        {
+            if (!trigger)
+            {
+                if (orElse != null) yield return new WaitUntil(orElse);
+                yield break;
+            }
             bool fired = false;
             void OnEntered(NarrativeTrigger _) => fired = true;
             trigger.Entered += OnEntered;
@@ -1201,7 +1226,7 @@ namespace SomeonesHome
             trigger.gameObject.SetActive(true);
             yield return new WaitForFixedUpdate();
             fired |= trigger.PlayerInside;
-            while (!fired) yield return null;
+            while (!fired && (orElse == null || !orElse())) yield return null;
             trigger.Entered -= OnEntered;
         }
 
