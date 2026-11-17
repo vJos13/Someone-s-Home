@@ -157,7 +157,8 @@ namespace SomeonesHome
             if (crosshair)
             {
                 crosshairPulse = Mathf.MoveTowards(crosshairPulse, 0f, dt * 4f);
-                float a = cinematic || GamePause.IsPaused ? 0f : promptWanted ? 0.95f : 0.45f;
+                // En la vista isométrica se apunta con el cursor: la mira central no tiene sentido.
+                float a = cinematic || GamePause.IsPaused || FirstPersonController.IsometricActive ? 0f : promptWanted ? 0.95f : 0.45f;
                 var c = crosshair.color;
                 c.a = Mathf.MoveTowards(c.a, a, dt * 5f);
                 crosshair.color = c;

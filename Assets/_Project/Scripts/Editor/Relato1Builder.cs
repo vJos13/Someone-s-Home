@@ -141,6 +141,7 @@ namespace SomeonesHome.EditorTools
             CharacterSetup.FaceNpcsToPlayer();
             NatureSetup.ConfigureModels();
             NatureSetup.Populate();
+            IsometricSetup.Apply(false);   // vista isométrica (cámara, clic para moverse, avatar, NavMesh)
             EditorSceneManager.SaveScene(scene, ScenePath);
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
             AssetDatabase.SaveAssets();

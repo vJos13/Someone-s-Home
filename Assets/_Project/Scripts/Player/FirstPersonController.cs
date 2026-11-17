@@ -13,10 +13,31 @@ namespace SomeonesHome
     /// - Cámara: sensibilidad/inversión desde GameSettings, filtro de saltos del puntero (WebGL), zoom con
     ///   rueda / pellizco (touchpad del navegador o pantalla táctil) sobre el lente de VCam_FPS.
     /// - Head bob sutil con envolvente (entra y sale suave) y pasos (si hay clips asignados).
+    /// - Vista ISOMÉTRICA (estilo ARPG, por defecto): cursor libre, cámara IsometricCamera, movimiento por clic
+    ///   (ClickToMove → NavigationInput) o WASD relativo a la cámara, el cuerpo gira hacia donde camina y la
+    ///   cabeza (Head: linterna, Interactor, mecánicas de mirada) apunta al cursor (AimPoint). [V] alterna vistas.
     /// </summary>
     [RequireComponent(typeof(CharacterController))]
     public class FirstPersonController : MonoBehaviour
     {
+        public enum ViewMode { FirstPerson, Isometric }
+
+        [Header("Vista")]
+        [SerializeField] ViewMode viewMode = ViewMode.Isometric;
+        [Tooltip("Permite alternar primera persona / isométrica en juego.")]
+        [SerializeField] bool allowViewToggle = true;
+        [SerializeField] Key toggleViewKey = Key.V;
+        [Tooltip("Cámara isométrica. Si está vacío se busca en la escena.")]
+        [SerializeField] IsometricCamera isoCamera;
+
+        [Header("Isométrica")]
+        [Tooltip("Rapidez con que el cuerpo gira hacia la dirección de movimiento.")]
+        [SerializeField] float turnSharpness = 13f;
+        [Tooltip("Rapidez con que la cabeza (linterna, mirada) sigue al cursor.")]
+        [SerializeField] float headAimSharpness = 10f;
+        [Tooltip("Inclinación máxima de la mirada hacia arriba/abajo al apuntar con el cursor.")]
+        [SerializeField] float aimPitchLimit = 60f;
+
         [Header("Movimiento")]
         [SerializeField] float walkSpeed = 2.6f;
         [SerializeField] float runSpeed = 4.4f;
@@ -58,6 +79,7 @@ namespace SomeonesHome
         CinemachineCamera fpsCam;
         Vector3 velocity;            // solo componente vertical (gravedad)
         Vector2 localPlanar;         // velocidad horizontal suavizada, en ejes del jugador (x = derecha, y = adelante)
+        Vector3 isoPlanar;           // vista isométrica: velocidad horizontal suavizada en ejes del mundo
         float pitch;
         float bobTimer, bobWeight;
         Vector3 headBase;
@@ -85,8 +107,35 @@ namespace SomeonesHome
         public bool IsSprinting { get; private set; }
         public bool TapSprinting => tapSprint;
 
-        /// <summary>Lo que el juego quiere para el cursor (lo último pedido con LockCursor).</summary>
-        public static bool RequestedCursorLocked { get; private set; } = true;
+        static bool cursorRequested = true;
+        /// <summary>
+        /// Lo que el juego quiere para el cursor (lo último pedido con LockCursor). En la vista isométrica el
+        /// cursor nunca se captura (se apunta y se hace clic con él), así que vale false.
+        /// </summary>
+        public static bool RequestedCursorLocked => cursorRequested && !IsometricActive;
+        /// <summary>Hay un jugador en vista isométrica (HUD, menús y cursor lo consultan).</summary>
+        public static bool IsometricActive { get; private set; }
+
+        public ViewMode Mode { get => viewMode; set => ApplyViewMode(value); }
+        public bool IsIsometric => viewMode == ViewMode.Isometric;
+        public IsometricCamera IsoCamera => isoCamera;
+        public event System.Action<ViewMode> ViewModeChanged;
+        /// <summary>Tras Teleport (la cámara salta, la ruta de ClickToMove se cancela).</summary>
+        public event System.Action Teleported;
+
+        /// <summary>Isométrica: dirección deseada en el mundo (magnitud 0..1) que pone ClickToMove; null = sin ruta.</summary>
+        public Vector3? NavigationInput { get; set; }
+        /// <summary>Isométrica: la ruta actual se recorre corriendo (doble clic).</summary>
+        public bool NavigationRun { get; set; }
+        /// <summary>Isométrica: punto del mundo bajo el cursor; la cabeza lo mira. null = mirar al frente.</summary>
+        public Vector3? AimPoint { get; set; }
+        /// <summary>Isométrica: el jugador está usando WASD / stick este frame (cancela la ruta del clic).</summary>
+        public bool HasDirectInput { get; private set; }
+        /// <summary>Velocidad horizontal real (m/s, mundo): la usan el avatar y sus animaciones.</summary>
+        public Vector3 PlanarVelocity { get; private set; }
+        public bool IsGrounded => controller && controller.isGrounded;
+        public float WalkSpeed => walkSpeed;
+        public float RunSpeed => runSpeed;
         /// <summary>Un menú (pausa, intro) tiene el cursor: el clic no lo captura.</summary>
         public static bool UIOwnsCursor { get; set; }
 
@@ -111,28 +160,86 @@ namespace SomeonesHome
                 fpsCam = head.GetComponentInChildren<CinemachineCamera>(true);
             }
             if (fpsCam) baseFov = currentFov = fpsCam.Lens.FieldOfView;
+            if (!isoCamera) isoCamera = FindAnyObjectByType<IsometricCamera>(FindObjectsInactive.Include);
             BrowserInput.BlockPageZoom();
+            // Antes de OnEnable (que pide el cursor): así la vista isométrica nunca lo captura.
+            IsometricActive = viewMode == ViewMode.Isometric && isoCamera;
         }
+
+        void Start() => ApplyViewMode(viewMode, true);
 
         void OnEnable() => LockCursor(true);
 
+        void OnDestroy()
+        {
+            if (IsIsometric) IsometricActive = false;
+        }
+
         public static void LockCursor(bool locked)
         {
-            RequestedCursorLocked = locked;
+            cursorRequested = locked;
             ApplyCursor(locked);
         }
 
         /// <summary>Aplica sin cambiar lo que pidió el juego (los menús liberan el cursor temporalmente).</summary>
         public static void ApplyCursor(bool locked)
         {
+            if (IsometricActive) locked = false;   // isométrica: el cursor siempre visible y libre
             Cursor.lockState = locked ? CursorLockMode.Locked : CursorLockMode.None;
             Cursor.visible = !locked;
+        }
+
+        // ════════════════════════ VISTA ════════════════════════
+        void ApplyViewMode(ViewMode mode, bool force = false)
+        {
+            if (mode == ViewMode.Isometric && !isoCamera)
+            {
+                Debug.LogWarning("[Jugador] No hay IsometricCamera en la escena: se usa la primera persona.");
+                mode = ViewMode.FirstPerson;
+            }
+            if (mode == viewMode && !force) return;
+
+            // La inercia pasa de una representación a la otra (sin tirón al cambiar).
+            Vector3 world = viewMode == ViewMode.Isometric ? isoPlanar : transform.right * localPlanar.x + transform.forward * localPlanar.y;
+            viewMode = mode;
+            bool iso = mode == ViewMode.Isometric;
+            IsometricActive = iso;
+            isoPlanar = world;
+            localPlanar = new Vector2(Vector3.Dot(world, transform.right), Vector3.Dot(world, transform.forward));
+            NavigationInput = null;
+            AimPoint = null;
+            zoomOffset = 0f;
+
+            if (fpsCam) fpsCam.Priority = iso ? 0 : 10;
+            if (isoCamera) isoCamera.SetLive(iso);
+            if (head)
+            {
+                head.localPosition = headBase;
+                head.localRotation = Quaternion.Euler(pitch, 0f, 0f);
+            }
+            suppressLookFrames = 2;
+            ApplyCursor(cursorRequested && !UIOwnsCursor);
+            ViewModeChanged?.Invoke(mode);
+        }
+
+        void HandleViewToggle()
+        {
+            if (!allowViewToggle || InputLocked || LookLocked || UIOwnsCursor || Keyboard.current == null) return;
+            if (Keyboard.current[toggleViewKey].wasPressedThisFrame)
+                ApplyViewMode(IsIsometric ? ViewMode.FirstPerson : ViewMode.Isometric);
         }
 
         void Update()
         {
             if (GamePause.IsPaused) return;
+            HandleViewToggle();
             HandleCursor();
+            if (IsIsometric)
+            {
+                AimHead();
+                Move();
+                return;
+            }
             if (LookLocked) { wasLookLocked = true; suppressLookFrames = 2; }
             else
             {
@@ -142,6 +249,29 @@ namespace SomeonesHome
             }
             Zoom();
             Move();
+        }
+
+        /// <summary>
+        /// Isométrica: la cabeza mira al cursor (así la linterna alumbra hacia ahí y "mirar" algo es apuntarle).
+        /// En cinemáticas/diálogos (LookLocked) o con un bot de pruebas, mira al frente con el Pitch pedido.
+        /// </summary>
+        void AimHead()
+        {
+            if (!head) return;
+            if (LookLocked || DebugMoveInput.HasValue || !AimPoint.HasValue)
+            {
+                Quaternion local = Quaternion.Euler(pitch, 0f, 0f);
+                head.localRotation = LookLocked || DebugMoveInput.HasValue
+                    ? local
+                    : Quaternion.Slerp(head.localRotation, local, 1f - Mathf.Exp(-headAimSharpness * Time.deltaTime));
+                return;
+            }
+            Vector3 d = AimPoint.Value - head.position;
+            if (d.sqrMagnitude < 0.04f) return;
+            Vector3 e = Quaternion.LookRotation(d).eulerAngles;
+            float p = Mathf.Clamp(Mathf.DeltaAngle(0f, e.x), -aimPitchLimit, aimPitchLimit);
+            Quaternion target = Quaternion.Euler(p, e.y, 0f);
+            head.rotation = Quaternion.Slerp(head.rotation, target, 1f - Mathf.Exp(-headAimSharpness * Time.deltaTime));
         }
 
         void HandleCursor()
@@ -254,27 +384,76 @@ namespace SomeonesHome
             if (!held) tapSprint = false;
         }
 
-        float TargetSpeed(Vector2 input)
-        {
-            bool shift = !InputLocked && (DebugRun
+        bool ShiftHeld() => !InputLocked && (DebugRun
                 || (Keyboard.current != null && (Keyboard.current.leftShiftKey.isPressed || Keyboard.current.rightShiftKey.isPressed))
                 || (GamepadGuard.Current != null && GamepadGuard.Current.leftStickButton.isPressed));
+
+        float TargetSpeed(Vector2 input)
+        {
+            bool shift = ShiftHeld();
             bool tap = tapSprint && input.y > 0.1f;
             IsSprinting = shift || tap;
             // Si se usan los dos, gana el más rápido (Shift): no se suman.
             return shift ? runSpeed : tap ? tapSprintSpeed : walkSpeed;
         }
 
+        /// <summary>
+        /// Isométrica: WASD/stick relativos a la cámara o la ruta de ClickToMove, en ejes del mundo.
+        /// El cuerpo gira suave hacia donde camina (nunca de golpe).
+        /// </summary>
+        Vector3 IsoMove()
+        {
+            Vector3 desired = Vector3.zero;
+            bool run = false;
+            Vector2 keys = ReadMoveInput();
+            HasDirectInput = keys.sqrMagnitude > 0.01f;
+            if (HasDirectInput)
+            {
+                Transform cam = isoCamera ? isoCamera.transform : Camera.main ? Camera.main.transform : transform;
+                Vector3 f = Vector3.ProjectOnPlane(cam.forward, Vector3.up);
+                if (f.sqrMagnitude < 0.001f) f = Vector3.ProjectOnPlane(cam.up, Vector3.up);
+                f.Normalize();
+                Vector3 r = Vector3.Cross(Vector3.up, f);
+                desired = r * keys.x + f * keys.y;
+                run = ShiftHeld();
+            }
+            else if (!InputLocked && NavigationInput.HasValue)
+            {
+                desired = Vector3.ClampMagnitude(Vector3.ProjectOnPlane(NavigationInput.Value, Vector3.up), 1f);
+                run = NavigationRun || ShiftHeld();
+            }
+            IsSprinting = run && desired.sqrMagnitude > 0.01f;
+            desired *= run ? runSpeed : walkSpeed;
+
+            float rate = desired.sqrMagnitude >= isoPlanar.sqrMagnitude ? acceleration : deceleration;
+            if (InputLocked) rate = deceleration * 2f;
+            isoPlanar = Vector3.MoveTowards(isoPlanar, desired, rate * Time.deltaTime);
+
+            Vector3 face = desired.sqrMagnitude > 0.01f ? desired : isoPlanar;
+            if (face.sqrMagnitude > 0.09f && !LookLocked)
+                transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(face),
+                                                      1f - Mathf.Exp(-turnSharpness * Time.deltaTime));
+            return isoPlanar;
+        }
+
         void Move()
         {
             UpdateTapSprint();
-            Vector2 input = ReadMoveInput();
-            float speed = TargetSpeed(input);
-            Vector2 target = input * speed;
-            float rate = target.sqrMagnitude >= localPlanar.sqrMagnitude ? acceleration : deceleration;
-            if (InputLocked) rate = deceleration * 2f;   // cinemática: se detiene casi en seco
-            localPlanar = Vector2.MoveTowards(localPlanar, target, rate * Time.deltaTime);
-            Vector3 move = transform.right * localPlanar.x + transform.forward * localPlanar.y;
+            // Los bots de pruebas (DebugMoveInput) siempre usan el control clásico en ejes del jugador.
+            bool iso = IsIsometric && !DebugMoveInput.HasValue;
+            Vector3 move;
+            if (iso) move = IsoMove();
+            else
+            {
+                HasDirectInput = false;
+                Vector2 input = ReadMoveInput();
+                float speed = TargetSpeed(input);
+                Vector2 target = input * speed;
+                float rate = target.sqrMagnitude >= localPlanar.sqrMagnitude ? acceleration : deceleration;
+                if (InputLocked) rate = deceleration * 2f;   // cinemática: se detiene casi en seco
+                localPlanar = Vector2.MoveTowards(localPlanar, target, rate * Time.deltaTime);
+                move = transform.right * localPlanar.x + transform.forward * localPlanar.y;
+            }
 
             bool grounded = controller.isGrounded;
             if (grounded && velocity.y < 0f) velocity.y = -2f; // pegado al suelo
@@ -295,16 +474,24 @@ namespace SomeonesHome
             Vector3 before = transform.position;
             controller.Move((move + velocity) * Time.deltaTime);
 
+            Vector3 realPlanar = Time.deltaTime > 0f ? Vector3.ProjectOnPlane((transform.position - before) / Time.deltaTime, Vector3.up) : Vector3.zero;
+            PlanarVelocity = realPlanar;
             // Si una pared frena al jugador, la inercia acumulada no se queda "cargada" contra ella.
             if ((controller.collisionFlags & CollisionFlags.Sides) != 0 && Time.deltaTime > 0f)
             {
-                Vector3 real = (transform.position - before) / Time.deltaTime;
-                Vector2 realLocal = new(Vector3.Dot(real, transform.right), Vector3.Dot(real, transform.forward));
-                // Solo si de verdad está bloqueado (no al subir el borde de una roca del sendero).
-                if (realLocal.magnitude < localPlanar.magnitude * 0.5f) localPlanar = Vector2.Lerp(localPlanar, realLocal, 0.5f);
+                if (iso)
+                {
+                    if (realPlanar.magnitude < isoPlanar.magnitude * 0.5f) isoPlanar = Vector3.Lerp(isoPlanar, realPlanar, 0.5f);
+                }
+                else
+                {
+                    Vector2 realLocal = new(Vector3.Dot(realPlanar, transform.right), Vector3.Dot(realPlanar, transform.forward));
+                    // Solo si de verdad está bloqueado (no al subir el borde de una roca del sendero).
+                    if (realLocal.magnitude < localPlanar.magnitude * 0.5f) localPlanar = Vector2.Lerp(localPlanar, realLocal, 0.5f);
+                }
             }
 
-            HeadBobAndSteps(localPlanar.magnitude, grounded);
+            HeadBobAndSteps(iso ? isoPlanar.magnitude : localPlanar.magnitude, grounded);
         }
 
         void OnControllerColliderHit(ControllerColliderHit hit)
@@ -340,7 +527,8 @@ namespace SomeonesHome
                 }
             }
 
-            float amp = GameSettings.HeadBob ? bobAmplitude * GameSettings.CameraMotion * bobWeight : 0f;
+            // En isométrica la cabeza no se balancea (la cámara no está en ella): solo suenan los pasos.
+            float amp = GameSettings.HeadBob && !IsIsometric ? bobAmplitude * GameSettings.CameraMotion * bobWeight : 0f;
             if (planarSpeed > walkSpeed * 1.2f) amp *= 1.15f;                  // corriendo, apenas más
             Vector3 p = headBase;
             p.y += Mathf.Sin(bobTimer) * amp;
@@ -370,7 +558,11 @@ namespace SomeonesHome
             controller.enabled = true;
             velocity = Vector3.zero;
             localPlanar = Vector2.zero;
+            isoPlanar = Vector3.zero;
+            PlanarVelocity = Vector3.zero;
+            NavigationInput = null;
             suppressLookFrames = 2;
+            Teleported?.Invoke();
         }
     }
 }
