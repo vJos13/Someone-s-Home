@@ -1,0 +1,2 @@
+Someone's Home/QA/Hornear NavMesh de la prueba de estrés (Editor, 26/11/2026)
+bake_ms=[21.5,14.1,20.3] triangulos=463 vertices=1017 → Assets/_Project/Resources/Nav/NavMesh_Estres.asset
