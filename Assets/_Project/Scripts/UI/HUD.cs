@@ -13,6 +13,8 @@ namespace SomeonesHome
     public class HUD : MonoBehaviour
     {
         public static HUD Instance { get; private set; }
+        /// <summary>Quién habla en el subtítulo actual (vacío: pensamiento o nadie). Lo usan los personajes para gesticular.</summary>
+        public static string CurrentSpeaker { get; private set; } = "";
 
         [SerializeField] TMP_Text objectiveText;
         [SerializeField] TMP_Text subtitleText;
@@ -31,6 +33,8 @@ namespace SomeonesHome
         [SerializeField] int blipEveryNChars = 2;
 
         AudioSource blipSource;
+        /// <summary>Borde inferior del bloque de subtítulos (px de referencia): por encima de la barra de objetos.</summary>
+        public const float SubtitleBottom = 172f;
 
         readonly Queue<(string speaker, string line, float duration)> queue = new();
         Coroutine subtitleRoutine;
@@ -53,6 +57,7 @@ namespace SomeonesHome
         void Awake()
         {
             Instance = this;
+            CurrentSpeaker = "";
             GameSettings.EnsureLoaded();
             if (promptText)
             {
@@ -68,6 +73,20 @@ namespace SomeonesHome
             if (objectiveGroup) objectiveGroup.alpha = 0f;
             if (promptText) promptText.text = "";
             if (cardText) cardText.text = "";
+
+            // Tarjetas del relato con la letra de la cinta (generador de caracteres del VCR).
+            if (cardText) { cardText.font = RetroFont.Bold; cardText.characterSpacing = 4f; }
+            // El objetivo arranca debajo del OSD de la cinta (PLAY / contador, arriba a la izquierda).
+            if (objectiveText) objectiveText.rectTransform.anchoredPosition += new Vector2(0f, -62f);
+            // Subtítulos justo encima de la barra de objetos (que ocupa ~22–150 px desde abajo, con su etiqueta).
+            if (subtitleText)
+            {
+                var r = subtitleText.rectTransform;
+                r.anchorMin = new Vector2(0.15f, 0f); r.anchorMax = new Vector2(0.85f, 0f);
+                r.pivot = new Vector2(0.5f, 0f);
+                r.offsetMin = new Vector2(0f, SubtitleBottom); r.offsetMax = new Vector2(0f, SubtitleBottom + 260f);
+                subtitleText.alignment = TextAlignmentOptions.Bottom;
+            }
 
             blipSource = gameObject.AddComponent<AudioSource>();
             blipSource.playOnAwake = false;
@@ -151,6 +170,7 @@ namespace SomeonesHome
         void Update()
         {
             float dt = Time.unscaledDeltaTime;
+            UpdateObjective(dt);
             bool cinematic = player && player.InputLocked && player.LookLocked;
             if (promptGroup)
                 promptGroup.alpha = Mathf.MoveTowards(promptGroup.alpha, promptWanted && !cinematic ? 1f : 0f, dt * 7f);
@@ -167,17 +187,112 @@ namespace SomeonesHome
         }
 
         // ── Objetivo ──
+        // Lo que se ve: el objetivo actual (shown) y, por un momento, el anterior ya tachado (prevDone) encima.
+        string shown;
+        bool shownDone;
+        float lingerUntil = -1f;          // tras SetObjective(null) con el objetivo cumplido: se ve tachado un rato
+        string prevDone;
+        float prevUntil;
+        float objectivePop;               // destello al cambiar / cumplir
+        AudioClip doneClip;
+
+        /// <summary>
+        /// Cambia el objetivo AL INSTANTE (sin esperar fundidos). Si el anterior estaba cumplido, queda un momento
+        /// tachado encima del nuevo. Las líneas tachadas con &lt;s&gt; que aparecen respecto del texto anterior
+        /// (listas de tareas) suenan como "cumplido". null lo oculta (si estaba cumplido, después de un instante).
+        /// </summary>
         public void SetObjective(string text)
         {
-            StartCoroutine(ObjectiveRoutine(text));
+            if (!objectiveText) return;
+            if (string.IsNullOrEmpty(text))
+            {
+                if (shown != null && shownDone) lingerUntil = Time.unscaledTime + 1.6f;
+                else { shown = null; shownDone = false; }      // el texto se queda mientras se desvanece
+                return;
+            }
+            if (shown != null && shownDone) { prevDone = Strike(shown); prevUntil = Time.unscaledTime + 1.8f; }
+            else if (CountStrikes(text) > CountStrikes(shown)) PlayDone();
+            shown = text;
+            shownDone = false;
+            lingerUntil = -1f;
+            objectivePop = 1f;
+            RenderObjective();
         }
 
-        IEnumerator ObjectiveRoutine(string text)
+        /// <summary>El jugador cumplió el objetivo actual: se tacha y se atenúa ya mismo, con un sonido suave.</summary>
+        public void CompleteObjective()
         {
-            if (!objectiveText) yield break;
-            yield return FadeGroup(objectiveGroup, 0f, 0.4f);
-            objectiveText.text = text ?? "";
-            if (!string.IsNullOrEmpty(text)) yield return FadeGroup(objectiveGroup, 1f, 0.8f);
+            if (shown == null || shownDone) return;
+            shownDone = true;
+            // Si la lista ya estaba toda tachada (cada tarea sonó al cumplirse), no se repite el sonido.
+            if (CountStrikes(shown) < shown.Split('\n').Length) { objectivePop = 1f; PlayDone(); }
+            RenderObjective();
+        }
+
+        void RenderObjective()
+        {
+            if (!objectiveText) return;
+            var sb = new System.Text.StringBuilder();
+            if (prevDone != null && Time.unscaledTime < prevUntil) sb.Append("<size=80%>").Append(prevDone).Append("</size>\n");
+            if (shown != null) sb.Append(shownDone ? Strike(shown) : shown);
+            objectiveText.text = sb.ToString();
+        }
+
+        void UpdateObjective(float dt)
+        {
+            if (!objectiveGroup) return;
+            if (prevDone != null && Time.unscaledTime >= prevUntil) { prevDone = null; RenderObjective(); }
+            if (shown != null && lingerUntil > 0f && Time.unscaledTime >= lingerUntil)
+            {
+                shown = null; shownDone = false; lingerUntil = -1f;
+            }
+            bool visible = shown != null || prevDone != null;
+            objectiveGroup.alpha = Mathf.MoveTowards(objectiveGroup.alpha, visible ? 1f : 0f, dt * (visible ? 4f : 2f));
+            if (!visible && objectiveGroup.alpha <= 0f && objectiveText.text.Length > 0) objectiveText.text = "";
+            objectivePop = Mathf.MoveTowards(objectivePop, 0f, dt * 2.5f);
+            objectiveText.transform.localScale = Vector3.one * (1f + objectivePop * 0.04f);
+        }
+
+        static string Strike(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return text;
+            var lines = text.Split('\n');
+            for (int i = 0; i < lines.Length; i++)
+                if (!lines[i].Contains("<s>")) lines[i] = $"<s><color=#999>{lines[i]}</color></s>";
+            return string.Join("\n", lines);
+        }
+
+        static int CountStrikes(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return 0;
+            int n = 0, i = 0;
+            while ((i = text.IndexOf("<s>", i, System.StringComparison.Ordinal)) >= 0) { n++; i += 3; }
+            return n;
+        }
+
+        void PlayDone()
+        {
+            if (!doneClip) doneClip = MakeDoneChime();
+            if (blipSource) blipSource.PlayOneShot(doneClip, 0.32f);
+        }
+
+        /// <summary>Dos notas suaves ascendentes (quinta), cortas: "cumplido" sin romper el clima.</summary>
+        static AudioClip MakeDoneChime()
+        {
+            const int rate = 44100;
+            int n = rate * 55 / 100;
+            var data = new float[n];
+            for (int i = 0; i < n; i++)
+            {
+                float t = i / (float)rate;
+                float a = t < 0.09f ? Mathf.Sin(2f * Mathf.PI * 660f * t) * Mathf.Exp(-t * 18f) : 0f;
+                float t2 = t - 0.09f;
+                float b = t2 > 0f ? Mathf.Sin(2f * Mathf.PI * 990f * t2) * Mathf.Exp(-t2 * 7f) * Mathf.Min(1f, t2 * 200f) : 0f;
+                data[i] = (a * 0.5f + b * 0.45f) * 0.6f;
+            }
+            var clip = AudioClip.Create("SFX_ObjetivoCumplido", n, 1, rate, false);
+            clip.SetData(data, 0);
+            return clip;
         }
 
         // ── Subtítulos ──
@@ -202,6 +317,7 @@ namespace SomeonesHome
             while (queue.Count > 0)
             {
                 var (speaker, line, duration) = queue.Dequeue();
+                CurrentSpeaker = speaker ?? "";
                 string text = string.IsNullOrEmpty(speaker)
                     ? $"<i>{line}</i>"
                     : $"<b><color=#E8C27A>{speaker}:</color></b> {line}";
@@ -213,6 +329,7 @@ namespace SomeonesHome
                 yield return FadeGroup(subtitleGroup, 0f, 0.25f);
             }
             subtitleRoutine = null;
+            CurrentSpeaker = "";
         }
 
         // ── Fundido y tarjetas ──
@@ -239,6 +356,7 @@ namespace SomeonesHome
         /// <summary>Muestra un texto centrado sobre el negro (intro, epílogo, créditos).</summary>
         public IEnumerator ShowCard(string text, float hold)
         {
+            VhsLook.Pulse(0.55f, 0.5f);                     // corte de escena: salto de tracking
             if (!cardText || FastForward) yield break;
             var c = cardText.color;
             c.a = 1f; cardText.color = c;

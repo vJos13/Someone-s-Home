@@ -14,9 +14,10 @@ namespace SomeonesHome
     /// <summary>
     /// Capa de interfaz "de sistema" sobre el HUD (la crea HUD.Awake; no vive en la escena):
     ///  - ESC (o Start del mando) → menú de pausa: Continuar / Configuración / Reiniciar relato / Menú principal.
+    ///    (En el menú principal ESC no pausa; Configuración se abre desde ahí con OpenSettingsStandalone.)
     ///    En WebGL el navegador consume ESC para soltar el puntero: perder la captura del puntero sin pedirlo
     ///    también abre la pausa.
-    ///  - Configuración: cámara, audio y accesibilidad (GameSettings, guardado con PlayerPrefs).
+    ///  - Configuración: cámara, audio, accesibilidad, gráficos y pantalla con brillo (GameSettings, PlayerPrefs).
     ///  - "Saltar historia" arriba a la derecha durante la intro (Level1Director.SkipIntro). Clic o Enter.
     ///  - Aviso "Haz clic para mirar" cuando el juego quiere el puntero capturado y el navegador no lo tiene.
     ///  - Pantalla de carga al reiniciar, con fundido de imagen y de audio.
@@ -24,9 +25,6 @@ namespace SomeonesHome
     /// </summary>
     public class GameMenu : MonoBehaviour
     {
-        /// <summary>Si algún día existe una escena de menú con este nombre en Build Settings, el botón la usa.</summary>
-        public const string MainMenuScene = "MenuPrincipal";
-
         HUD hud;
         TMP_FontAsset font;
         Level1Director director;
@@ -189,17 +187,10 @@ namespace SomeonesHome
             MenuWidgets.Button(pausePanel, font, "CONFIGURACIÓN", OpenSettings);
             MenuWidgets.Button(pausePanel, font, "REINICIAR RELATO", () =>
                 Confirm("¿Reiniciar el relato?\n<size=22><color=#8A8A8A>Se perderá el progreso de esta partida.</color></size>", RestartStory));
-            bool hasMenu = Application.CanStreamedLevelBeLoaded(MainMenuScene);
-            var menuBtn = MenuWidgets.Button(pausePanel, font, "VOLVER AL MENÚ PRINCIPAL", () =>
+            // El menú principal vive en la misma escena (cámara en el río): se recarga la escena con el menú puesto.
+            MenuWidgets.Button(pausePanel, font, "VOLVER AL MENÚ PRINCIPAL", () =>
                 Confirm("¿Volver al menú principal?\n<size=22><color=#8A8A8A>Se perderá el progreso de esta partida.</color></size>",
-                        () => StartCoroutine(LoadScene(MainMenuScene))));
-            if (!hasMenu)
-            {
-                // No hay escena de menú todavía: la opción queda visible pero desactivada (no rompe la navegación).
-                menuBtn.interactable = false;
-                var label = menuBtn.GetComponentInChildren<TextMeshProUGUI>();
-                label.text = "VOLVER AL MENÚ PRINCIPAL  <size=16><color=#5A5A5A>NO DISPONIBLE</color></size>";
-            }
+                        () => { MainMenuController.ShowOnNextLoad = true; StartCoroutine(LoadScene(SceneManager.GetActiveScene().name)); }));
 
             var foot = MenuWidgets.Text("Ayuda", pauseGroup.transform, font,
                 "<color=#8A8A8A>ESC</color>  CONTINUAR", 16f, MenuWidgets.TextDim, TextAlignmentOptions.Left, 6f);
@@ -247,7 +238,7 @@ namespace SomeonesHome
             Slider(cam, "Sensibilidad vertical", 0.2f, 3f, () => GameSettings.SensitivityY, v => GameSettings.SensitivityY = v, Mult);
             Toggle(cam, "Invertir eje vertical", () => GameSettings.InvertY, v => GameSettings.InvertY = v);
             Slider(cam, "Velocidad de cámara (mando)", 0.3f, 2.5f, () => GameSettings.StickLookSpeed, v => GameSettings.StickLookSpeed = v, Mult);
-            Toggle(cam, "Zoom (rueda / pellizco)", () => GameSettings.ZoomEnabled, v => GameSettings.ZoomEnabled = v);
+            Toggle(cam, "Zoom libre (Ctrl + rueda / pellizco)", () => GameSettings.ZoomEnabled, v => GameSettings.ZoomEnabled = v);
 
             var audio = Page(pages, tabRow, "AUDIO");
             Slider(audio, "Volumen general", 0f, 1f, () => GameSettings.MasterVolume, v => GameSettings.MasterVolume = v, Pct);
@@ -265,6 +256,50 @@ namespace SomeonesHome
                 18f, MenuWidgets.TextDim, TextAlignmentOptions.Left, 0.5f);
             note.textWrappingMode = TextWrappingModes.Normal;
             MenuWidgets.Layout(note, 60f);
+
+            // Gráficos: un preset y las opciones sueltas. Tocar una opción suelta pasa el preset a "Personalizada".
+            var gfx = Page(pages, tabRow, "GRÁFICOS");
+            Choice(gfx, "Calidad", GraphicsQuality.PresetNames, () => GameSettings.GfxPreset, v =>
+            {
+                if (v == GraphicsQuality.Custom) { GameSettings.GfxPreset = GraphicsQuality.MatchPreset(); return; }
+                GraphicsQuality.LoadPreset(v);
+            }, gfxRow: false);
+            Slider(gfx, "Escala de resolución", 0.5f, 1f, () => GameSettings.RenderScale, v => GameSettings.RenderScale = Mathf.Round(v * 20f) / 20f,
+                   GraphicsQuality.ScaleLabel, gfxRow: true);
+            Choice(gfx, "Sombras", GraphicsQuality.ShadowNames, () => GameSettings.Shadows, v => GameSettings.Shadows = v);
+            Toggle(gfx, "Oclusión ambiental (SSAO)", () => GameSettings.Ssao, v => GameSettings.Ssao = v, gfxRow: true);
+            Choice(gfx, "Antialiasing", GraphicsQuality.AntiAliasNames, () => GameSettings.AntiAliasing, v => GameSettings.AntiAliasing = v);
+            Slider(gfx, "Densidad del pasto", 0.2f, 1f, () => GameSettings.GrassDensity, v => GameSettings.GrassDensity = Mathf.Round(v * 10f) / 10f,
+                   Pct, gfxRow: true);
+            Choice(gfx, "Distancia de visión", GraphicsQuality.ViewNames, () => GameSettings.ViewDistance, v => GameSettings.ViewDistance = v);
+            Choice(gfx, "Texturas", GraphicsQuality.TextureNames, () => GameSettings.Textures, v => GameSettings.Textures = v);
+            Toggle(gfx, "Rayos de luz (sol entre los árboles)", () => GameSettings.LightShafts, v => GameSettings.LightShafts = v);
+            Toggle(gfx, "Reflejos del agua", () => GameSettings.WaterReflections, v => GameSettings.WaterReflections = v);
+
+            var screenPage = Page(pages, tabRow, "PANTALLA");
+            // Screen.fullScreen cambia recién en el frame siguiente: se recuerda lo pedido para que la casilla no "rebote".
+            Toggle(screenPage, "Pantalla completa", () => fullscreenWanted ?? Screen.fullScreen, v =>
+            {
+                fullscreenWanted = v;
+                Screen.fullScreenMode = v ? FullScreenMode.FullScreenWindow : FullScreenMode.Windowed;
+            });
+            Slider(screenPage, "Brillo", -0.5f, 0.5f, () => GameSettings.Brightness,
+                   v => GameSettings.Brightness = Mathf.Round(v * 20f) / 20f, GraphicsQuality.BrightnessLabel, compact: true);
+            if (Application.platform != RuntimePlatform.WebGLPlayer) ResolutionChoice(screenPage);
+            Choice(screenPage, "Filtro de cinta (VHS)", VhsLook.FilterNames, () => GameSettings.VhsFilter, v => GameSettings.VhsFilter = v,
+                   gfxRow: false);
+            Toggle(screenPage, "Fecha y contador de la cinta", () => GameSettings.TapeOsd, v => GameSettings.TapeOsd = v);
+            Toggle(screenPage, "Sincronización vertical (VSync)", () => GameSettings.VSync, v => GameSettings.VSync = v);
+            Choice(screenPage, "Límite de FPS (sin VSync)", GraphicsQuality.FpsLimitNames, () => GameSettings.FpsLimit, v => GameSettings.FpsLimit = v,
+                   gfxRow: false);
+            Toggle(screenPage, "Mostrar FPS", () => GameSettings.ShowFps, v => GameSettings.ShowFps = v);
+            var gfxNote = MenuWidgets.Text("Nota", screenPage, font,
+                "¿El juego va lento? En GRÁFICOS baja la Calidad a Media o Baja, o reduce la Escala de resolución: " +
+                "es lo que más alivia a las gráficas integradas. Activa «Mostrar FPS» para comparar. " +
+                "Brillo: súbelo solo hasta distinguir las formas en la oscuridad; la noche está pensada para verse oscura.",
+                18f, MenuWidgets.TextDim, TextAlignmentOptions.Left, 0.5f);
+            gfxNote.textWrappingMode = TextWrappingModes.Normal;
+            MenuWidgets.Layout(gfxNote, 104f);
 
             // Pie: restablecer / volver
             var foot = MenuWidgets.Rect("Pie", settingsPanel);
@@ -288,7 +323,7 @@ namespace SomeonesHome
         {
             int index = tabs.Count;
             var tab = MenuWidgets.Button(tabRow, font, name, () => SelectTab(index), 20f, 54f);
-            MenuWidgets.Layout(tab, 54f, name.Length * 17f + 90f);
+            MenuWidgets.Layout(tab, 54f, name.Length * 14f + 48f);
             var page = MenuWidgets.Rect("Pagina_" + name, pages);
             MenuWidgets.Stretch(page);
             var v = page.gameObject.AddComponent<VerticalLayoutGroup>();
@@ -311,19 +346,76 @@ namespace SomeonesHome
             }
         }
 
-        void Slider(Transform page, string label, float min, float max, Func<float> get, Action<float> set, Func<float, string> fmt)
+        /// <param name="gfxRow">Opción suelta de GRÁFICOS: al cambiarla, el preset se recalcula (o pasa a Personalizada).</param>
+        /// <param name="compact">Mismas columnas que los selectores (para páginas que mezclan ambos).</param>
+        void Slider(Transform page, string label, float min, float max, Func<float> get, Action<float> set, Func<float, string> fmt,
+                    bool gfxRow = false, bool compact = false)
         {
             var row = MenuWidgets.Row(page, font, label, out _);
-            var s = MenuWidgets.Slider(row, font, min, max, get(), fmt, v => { set(v); GameSettings.NotifyChanged(); });
+            var s = MenuWidgets.Slider(row, font, min, max, get(), fmt, v => Changed(() => set(v), gfxRow));
+            if (gfxRow || compact)   // mismas columnas que los selectores de la página GRÁFICOS
+            {
+                MenuWidgets.Layout(s, 30f, 210f);
+                MenuWidgets.Layout(row.Find("Valor"), 40f, 180f);
+            }
             refreshers.Add(() => s.SetValueWithoutNotify(get()));
             refreshers.Add(() => row.Find("Valor").GetComponent<TMP_Text>().text = fmt(get()));
         }
 
-        void Toggle(Transform page, string label, Func<bool> get, Action<bool> set)
+        /// <summary>Resolución de pantalla (hasta 4K si el monitor la tiene). Unity la recuerda entre sesiones.</summary>
+        void ResolutionChoice(Transform page)
+        {
+            var list = new System.Collections.Generic.List<Vector2Int>();
+            foreach (var r in Screen.resolutions)
+            {
+                var v = new Vector2Int(r.width, r.height);
+                if (v.x >= 1280 && !list.Contains(v)) list.Add(v);
+            }
+            if (list.Count == 0) return;
+            list.Sort((a, b) => (b.x * b.y).CompareTo(a.x * a.y));
+            var names = list.ConvertAll(v => v.x >= 3840 ? $"{v.x}×{v.y} (4K)" : v.x >= 2560 ? $"{v.x}×{v.y} (QHD)" : $"{v.x}×{v.y}").ToArray();
+            int Current()
+            {
+                int best = 0, bestDiff = int.MaxValue;
+                for (int i = 0; i < list.Count; i++)
+                {
+                    int d = Mathf.Abs(list[i].x - Screen.width) + Mathf.Abs(list[i].y - Screen.height);
+                    if (d < bestDiff) { bestDiff = d; best = i; }
+                }
+                return best;
+            }
+            Choice(page, "Resolución", names, Current, i => Screen.SetResolution(list[i].x, list[i].y, Screen.fullScreenMode), gfxRow: false);
+        }
+
+        void Toggle(Transform page, string label, Func<bool> get, Action<bool> set, bool gfxRow = false)
         {
             var row = MenuWidgets.Row(page, font, label, out _);
-            var t = MenuWidgets.Toggle(row, get(), v => { set(v); GameSettings.NotifyChanged(); });
+            var t = MenuWidgets.Toggle(row, get(), v => Changed(() => set(v), gfxRow));
             refreshers.Add(() => t.SetIsOnWithoutNotify(get()));
+        }
+
+        /// <summary>Selector de opciones con nombre: un slider por pasos que muestra el nombre de la opción.
+        /// Funciona igual con ratón, teclado y mando (izquierda/derecha).</summary>
+        void Choice(Transform page, string label, string[] options, Func<int> get, Action<int> set, bool gfxRow = true)
+        {
+            var row = MenuWidgets.Row(page, font, label, out _);
+            string Name(float v) => options[Mathf.Clamp(Mathf.RoundToInt(v), 0, options.Length - 1)];
+            var s = MenuWidgets.Slider(row, font, 0, options.Length - 1, get(), Name,
+                                       v => Changed(() => set(Mathf.RoundToInt(v)), gfxRow));
+            s.wholeNumbers = true;
+            s.SetValueWithoutNotify(get());
+            MenuWidgets.Layout(s, 30f, 210f);
+            MenuWidgets.Layout(row.Find("Valor"), 40f, 180f);
+            refreshers.Add(() => s.SetValueWithoutNotify(get()));
+            refreshers.Add(() => row.Find("Valor").GetComponent<TMP_Text>().text = Name(get()));
+        }
+
+        void Changed(Action apply, bool gfxRow)
+        {
+            apply();
+            if (gfxRow) GameSettings.GfxPreset = GraphicsQuality.MatchPreset();
+            GameSettings.NotifyChanged();
+            RefreshSettings();   // el preset y las opciones sueltas se muestran entre sí
         }
 
         void RefreshSettings()
@@ -376,7 +468,9 @@ namespace SomeonesHome
             bool back = pad != null && pad.buttonEast.wasPressedThisFrame;
             bool locked = Cursor.lockState == CursorLockMode.Locked;
 
-            if (screen != MenuScreen.Loading)
+            // En el menú principal ESC no abre la pausa (sí cierra Configuración si está abierta).
+            bool mainMenu = MainMenuController.Active && screen == MenuScreen.None;
+            if (screen != MenuScreen.Loading && !mainMenu)
             {
                 if (esc || (back && screen != MenuScreen.None)) Back();
                 // WebGL: el navegador suelta el puntero con ESC (y no siempre nos llega la tecla). Si el juego lo
@@ -424,8 +518,11 @@ namespace SomeonesHome
             GamePause.Set(false);
         }
 
+        bool? fullscreenWanted;
+
         void OpenSettings()
         {
+            fullscreenWanted = null;
             screen = MenuScreen.Settings;
             RefreshSettings();
             StartCoroutine(Transition(pauseGroup, pausePanel, false, new Vector2(-24f, 0f)));
@@ -434,9 +531,35 @@ namespace SomeonesHome
             Select(tabs[0].tab);
         }
 
+        Action settingsClosed;
+
+        /// <summary>Abre Configuración sin la pausa detrás (desde el menú principal). Al volver llama a onClosed.</summary>
+        public void OpenSettingsStandalone(Action onClosed)
+        {
+            fullscreenWanted = null;
+            settingsClosed = onClosed;
+            screen = MenuScreen.Settings;
+            IsOpen = true;
+            RefreshSettings();
+            StartCoroutine(Transition(settingsGroup, settingsPanel, true, new Vector2(0f, -16f)));
+            SelectTab(0);
+            Select(tabs[0].tab);
+        }
+
         void CloseSettings()
         {
             GameSettings.Save();
+            if (settingsClosed != null)
+            {
+                var done = settingsClosed;
+                settingsClosed = null;
+                screen = MenuScreen.None;
+                IsOpen = false;
+                StartCoroutine(Transition(settingsGroup, settingsPanel, false, new Vector2(0f, -16f)));
+                EventSystem.current?.SetSelectedGameObject(null);
+                done();
+                return;
+            }
             screen = MenuScreen.Pause;
             StartCoroutine(Transition(settingsGroup, settingsPanel, false, new Vector2(0f, -16f)));
             StartCoroutine(Transition(pauseGroup, pausePanel, true, new Vector2(-24f, 0f)));
@@ -462,7 +585,11 @@ namespace SomeonesHome
             if (screen == MenuScreen.Pause) Select(continueButton);
         }
 
-        void RestartStory() => StartCoroutine(LoadScene(SceneManager.GetActiveScene().name));
+        void RestartStory()
+        {
+            MainMenuController.ShowOnNextLoad = false;     // reiniciar = directo al relato
+            StartCoroutine(LoadScene(SceneManager.GetActiveScene().name));
+        }
 
         IEnumerator LoadScene(string sceneName)
         {
@@ -540,7 +667,9 @@ namespace SomeonesHome
         void UpdateCursorOwnership()
         {
             // Durante las tarjetas de la intro (sin poder mirar) el cursor queda libre para el botón Saltar.
-            bool want = screen != MenuScreen.None || (SkipAvailable && player && player.LookLocked && sceneTime > 1.2f);
+            // Inspección 3D y celular abierto también liberan el cursor (girar arrastrando / leer).
+            bool want = screen != MenuScreen.None || (SkipAvailable && player && player.LookLocked && sceneTime > 1.2f)
+                        || InspectionView.IsOpen || (Phone.Instance && Phone.Instance.IsOpen && !MainMenuController.Active);
             if (want == uiOwnsCursor) return;
             uiOwnsCursor = want;
             FirstPersonController.UIOwnsCursor = want;

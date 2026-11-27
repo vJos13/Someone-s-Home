@@ -31,6 +31,9 @@ namespace SomeonesHome
             onEnter?.Invoke();
         }
 
+        // Unity no llama a OnTriggerExit al desactivar el trigger: sin esto quedaría "adentro" para siempre.
+        void OnDisable() => PlayerInside = false;
+
         void OnTriggerExit(Collider other)
         {
             if (other.CompareTag("Player")) PlayerInside = false;

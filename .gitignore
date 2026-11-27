@@ -24,6 +24,7 @@ crashlytics-build.properties
 *.unitypackage
 *.zip
 /Build_Hito3/
+/Builds_Perf/
 
 # ── IDEs ──
 .vs/

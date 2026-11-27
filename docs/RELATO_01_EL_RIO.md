@@ -25,7 +25,7 @@
 | El hermano está en un columpio de 2-3 asientos | Columpio que se mece solo |
 | Oye su nombre a sus espaldas y no hay nadie en el campo | Voz 3D desde lo alto de la colina |
 | El hermano se pone de pie mirando al otro lado del río | Revelación con **Cinemachine** |
-| Algo "tipo venado" de pie en dos patas | Criatura greybox (la reemplaza el equipo) |
+| Algo "tipo venado" de pie en dos patas | Criatura modelada y animada en Blender (respira, camina, corre) |
 | Aparta la mirada unos segundos y al volver la boca se mueve diciendo su nombre | **Mecánica de mirada:** solo cambia cuando no lo miras |
 | El hermano grita al verlo y tienen el diálogo | Diálogo con subtítulos, literal del post |
 | Entran, cenan y no dicen nada | Fundido a negro + epílogo |
@@ -66,7 +66,7 @@
 | Cocina | Mensajes de mamá al celular; Tammy pide poner la mesa y sacar la basura | Rutina normal antes del miedo |
 | El tacho de afuera | El perro de los vecinos ladra, se pone loco y se calla de golpe. En el borde de la colina hay algo parado muy derecho; cuando vuelves a mirar ya no está | Primer aviso, ambiguo |
 | Llamar a Sam | Suena y suena: buzón de voz | Inquietud antes de salir |
-| El regreso | La cosa nos sigue: cada vez que miras atrás está más cerca. Pasos detrás de ti en el pasto | Persecución sin persecución |
+| El regreso | La cosa nos sigue: cada vez que miras atrás está más cerca. Pasos detrás de ti en el pasto. Arriba de la colina deja de esconderse y **corre hacia ti por el campo** hasta la puerta (si te alcanza, se reintenta) | Acecho que termina en persecución |
 | La noche | Sam te escribe desde su saco ("¿oyes eso?"). Golpes en la ventana, algo pegado al vidrio. Una voz con la voz de Tammy (y después la de Sam) pide que abras | Clímax dentro de la casa |
 | Asegurar la casa | Cerrar la cortina, poner el cerrojo, apagar la luz, acostarse | Tareas bajo presión |
 | Final malo | Si abres la puerta de noche | Consecuencia de la decisión |

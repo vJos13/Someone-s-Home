@@ -755,7 +755,7 @@ namespace SomeonesHome.EditorTools
             fpsCam.transform.SetParent(head, false);
             fpsCam.Priority = 10;
             var fpsLens = LensSettings.Default;
-            fpsLens.FieldOfView = 68f; fpsLens.NearClipPlane = 0.05f; fpsLens.FarClipPlane = 400f;
+            fpsLens.FieldOfView = 68f; fpsLens.NearClipPlane = 0.05f; fpsLens.FarClipPlane = PerfSettings.CameraFar;
             fpsCam.Lens = fpsLens;
 
             var steps = player.AddComponent<AudioSource>();
@@ -771,7 +771,7 @@ namespace SomeonesHome.EditorTools
             var camGO = new GameObject("Main Camera") { tag = "MainCamera" };
             camGO.transform.SetParent(cams);
             var cam = camGO.AddComponent<Camera>();
-            cam.nearClipPlane = 0.05f; cam.farClipPlane = 400f;
+            cam.nearClipPlane = 0.05f; cam.farClipPlane = PerfSettings.CameraFar;
             var urp = camGO.AddComponent<UniversalAdditionalCameraData>();
             urp.renderPostProcessing = true;
             urp.antialiasing = AntialiasingMode.FastApproximateAntialiasing;
@@ -792,7 +792,7 @@ namespace SomeonesHome.EditorTools
             var vcam = go.AddComponent<CinemachineCamera>();
             vcam.Priority = 0;
             var lens = LensSettings.Default;
-            lens.FieldOfView = 24f; lens.NearClipPlane = 0.05f; lens.FarClipPlane = 400f;
+            lens.FieldOfView = 24f; lens.NearClipPlane = 0.05f; lens.FarClipPlane = PerfSettings.CameraFar;
             vcam.Lens = lens;
 
             var noiseProfile = AssetDatabase.LoadAssetAtPath<NoiseSettings>("Packages/com.unity.cinemachine/Presets/Noise/Handheld_normal_mild.asset");

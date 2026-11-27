@@ -10,8 +10,9 @@ namespace SomeonesHome
     ///   (girar la cámara no "arrastra" la inercia) y diagonal normalizada.
     /// - Correr: Shift (o clic del stick) o doble toque de W (aceleración moderada mientras se mantenga W).
     /// - En pendientes más empinadas que slopeLimit el jugador resbala: la colina solo se baja por las rocas.
-    /// - Cámara: sensibilidad/inversión desde GameSettings, filtro de saltos del puntero (WebGL), zoom con
-    ///   rueda / pellizco (touchpad del navegador o pantalla táctil) sobre el lente de VCam_FPS.
+    /// - Cámara: sensibilidad/inversión desde GameSettings, filtro de saltos del puntero (WebGL).
+    ///   Enfoque: mantener clic derecho (o gatillo izquierdo) cierra el lente suavemente para mirar de lejos.
+    ///   Zoom libre: Ctrl + rueda / pellizco (touchpad o pantalla táctil). La rueda sola cambia de objeto (inventario).
     /// - Head bob sutil con envolvente (entra y sale suave) y pasos (si hay clips asignados).
     /// </summary>
     [RequireComponent(typeof(CharacterController))]
@@ -30,11 +31,26 @@ namespace SomeonesHome
         [SerializeField] float gravity = -20f;
         [SerializeField] float slideSpeed = 7f;
 
+        [Header("Salto")]
+        [Tooltip("Altura del salto en metros (modesto: es un relato, no un plataformas).")]
+        [SerializeField] float jumpHeight = 0.6f;
+        [Tooltip("Margen para saltar justo después de salir de un borde (s).")]
+        [SerializeField] float coyoteTime = 0.12f;
+        [Tooltip("Un Espacio apretado un instante antes de tocar el suelo igual salta (s).")]
+        [SerializeField] float jumpBuffer = 0.15f;
+        [Tooltip("Control en el aire (0 = ninguno, 1 = igual que en el suelo).")]
+        [SerializeField] float airControl = 0.35f;
+        [SerializeField] float maxFallSpeed = 40f;
+
+        [Header("Carrera")]
+        [Tooltip("Grados que se abre el lente al correr (se escala con 'Movimiento de cámara').")]
+        [SerializeField] float sprintFovKick = 4f;
+
         [Header("Cámara")]
         [SerializeField] Transform head;
         [SerializeField] float mouseSensitivity = 0.08f;
         [SerializeField] float gamepadSensitivity = 120f;
-        [SerializeField] float pitchLimit = 80f;
+        [SerializeField] float pitchLimit = 85f;
         [Tooltip("Saltos del puntero mayores a esto (px en un frame) se descartan: pasa al capturar el puntero en WebGL.")]
         [SerializeField] float maxMouseDelta = 250f;
 
@@ -44,6 +60,8 @@ namespace SomeonesHome
         [SerializeField] float maxFovAboveBase = 6f;
         [SerializeField] float fovPerScrollStep = 3.5f;
         [SerializeField] float zoomSmoothTime = 0.12f;
+        [Tooltip("Grados que cierra el lente al enfocar con clic derecho.")]
+        [SerializeField] float focusFovDrop = 16f;
 
         [Header("Head bob")]
         [SerializeField] float bobFrequency = 1.8f;
@@ -73,8 +91,17 @@ namespace SomeonesHome
         bool lastPressWasTap;        // la pulsación anterior se soltó dentro de la ventana
         bool tapSprint;
 
+        // Salto
+        float lastGroundedTime = -10f, jumpRequestedAt = -10f;
+        bool jumping, airborne;
+        float airborneMaxFall;          // velocidad de caída máxima del salto/caída en curso
+        float landDip;                  // hundimiento de la cámara al aterrizar
+        float sprintBlend;
+        readonly Collider[] feetHits = new Collider[8];
+        float stepOffsetGround = 0.45f;
+
         // Zoom
-        float baseFov, zoomOffset, currentFov, fovVelocity;
+        float baseFov, zoomOffset, currentFov, fovVelocity, focusBlend;
         float lastPinchDistance = -1f;
 
         /// <summary>Lo usan las cinemáticas y los diálogos para congelar al jugador.</summary>
@@ -84,6 +111,10 @@ namespace SomeonesHome
         /// <summary>Corriendo por Shift o por doble toque de W.</summary>
         public bool IsSprinting { get; private set; }
         public bool TapSprinting => tapSprint;
+        /// <summary>Pisando suelo (CharacterController o la esfera de los pies).</summary>
+        public bool IsGrounded { get; private set; }
+        /// <summary>Solo pruebas: pide un salto como si se apretara Espacio.</summary>
+        public void DebugJump() => jumpRequestedAt = Time.time;
 
         /// <summary>Lo que el juego quiere para el cursor (lo último pedido con LockCursor).</summary>
         public static bool RequestedCursorLocked { get; private set; } = true;
@@ -104,7 +135,10 @@ namespace SomeonesHome
         void Awake()
         {
             controller = GetComponent<CharacterController>();
+            stepOffsetGround = controller.stepOffset;
             GameSettings.EnsureLoaded();
+            // El inventario vive en el jugador (lo usan la linterna, el celular y el relato).
+            if (!GetComponent<InventorySystem>()) gameObject.AddComponent<InventorySystem>();
             if (head)
             {
                 headBase = head.localPosition;
@@ -184,18 +218,30 @@ namespace SomeonesHome
             else
             {
                 float steps = 0f;
-                if (Mouse.current != null)
+                var kb = Keyboard.current;
+                bool ctrl = kb != null && (kb.leftCtrlKey.isPressed || kb.rightCtrlKey.isPressed);
+                if (Mouse.current != null && ctrl)
                 {
                     float s = Mouse.current.scroll.ReadValue().y;
                     if (Mathf.Abs(s) > 20f) s /= 120f;   // por si llegan valores crudos (120 por muesca)
-                    steps += Mathf.Clamp(s, -3f, 3f);    // pellizco en touchpad (Chrome/Edge/Firefox: rueda + Ctrl) entra aquí
+                    steps += Mathf.Clamp(s, -3f, 3f);
                 }
                 steps += PinchSteps();
                 // Rueda arriba / dedos separándose = acercar (FOV más cerrado).
                 zoomOffset = Mathf.Clamp(zoomOffset - steps * fovPerScrollStep, minFov - baseFov, maxFovAboveBase);
             }
+            // Enfoque sostenido: clic derecho o gatillo izquierdo.
+            bool focus = !LookLocked && !InputLocked
+                         && ((Mouse.current != null && Mouse.current.rightButton.isPressed && Cursor.lockState == CursorLockMode.Locked)
+                             || (GamepadGuard.Current != null && GamepadGuard.Current.leftTrigger.isPressed));
+            focusBlend = Mathf.MoveTowards(focusBlend, focus ? 1f : 0f, Time.deltaTime * 4f);
+            // Correr abre apenas el lente (solo si de verdad avanza rápido).
+            bool fast = IsSprinting && localPlanar.y > walkSpeed * 1.05f && !InputLocked;
+            sprintBlend = Mathf.MoveTowards(sprintBlend, fast ? 1f : 0f, Time.deltaTime * (fast ? 2f : 3f));
+            float kick = Mathf.SmoothStep(0f, 1f, sprintBlend) * sprintFovKick * GameSettings.CameraMotion;
+            float target = Mathf.Max(minFov - 8f, baseFov + zoomOffset + kick - Mathf.SmoothStep(0f, 1f, focusBlend) * focusFovDrop);
             float smooth = Mathf.Lerp(0.03f, zoomSmoothTime, GameSettings.CameraMotion);
-            currentFov = Mathf.SmoothDamp(currentFov, baseFov + zoomOffset, ref fovVelocity, smooth);
+            currentFov = Mathf.SmoothDamp(currentFov, target, ref fovVelocity, smooth);
             fpsCam.Lens.FieldOfView = currentFov;
         }
 
@@ -273,10 +319,16 @@ namespace SomeonesHome
             Vector2 target = input * speed;
             float rate = target.sqrMagnitude >= localPlanar.sqrMagnitude ? acceleration : deceleration;
             if (InputLocked) rate = deceleration * 2f;   // cinemática: se detiene casi en seco
+            if (airborne) rate *= airControl;            // en el aire se conserva el impulso
             localPlanar = Vector2.MoveTowards(localPlanar, target, rate * Time.deltaTime);
             Vector3 move = transform.right * localPlanar.x + transform.forward * localPlanar.y;
 
             bool grounded = controller.isGrounded;
+            // Suelo fiable: además del CharacterController (que a veces parpadea en bordes y escalones),
+            // una esfera en los pies. Solo cuenta bajando: al subir de un salto no "re-aterriza".
+            bool feet = velocity.y <= 0.1f && FeetOnGround();
+            IsGrounded = grounded || feet;
+            if (IsGrounded && velocity.y <= 0f) { lastGroundedTime = Time.time; jumping = false; }
             if (grounded && velocity.y < 0f) velocity.y = -2f; // pegado al suelo
 
             // Resbalar en pendientes imposibles: "o pisas las rocas o sales volando".
@@ -291,9 +343,38 @@ namespace SomeonesHome
                 move = move * 0.2f + slideDir * slideSpeed;
             }
 
-            velocity.y += gravity * Time.deltaTime;
+            // Salto: Espacio (o Y del mando), con margen al salir de un borde y al apretar antes de tocar el suelo.
+            if (!InputLocked && !DebugMoveInput.HasValue && JumpPressed()) jumpRequestedAt = Time.time;
+            bool steep = grounded && slopeAngle > controller.slopeLimit;
+            if (!InputLocked && !jumping && !steep
+                && Time.time - jumpRequestedAt <= jumpBuffer && Time.time - lastGroundedTime <= coyoteTime)
+            {
+                velocity.y = Mathf.Sqrt(2f * -gravity * jumpHeight);
+                jumping = true;
+                jumpRequestedAt = lastGroundedTime = -10f;
+            }
+
+            velocity.y = Mathf.Max(velocity.y + gravity * Time.deltaTime, -maxFallSpeed);
             Vector3 before = transform.position;
+            // En el aire no se "sube" a bordes por el stepOffset (evita trepar paredes saltando).
+            controller.stepOffset = IsGrounded ? stepOffsetGround : 0.05f;
             controller.Move((move + velocity) * Time.deltaTime);
+            // Cabeza contra el techo: corta el impulso hacia arriba.
+            if ((controller.collisionFlags & CollisionFlags.Above) != 0 && velocity.y > 0f) velocity.y = 0f;
+
+            // Aterrizaje: hundimiento breve de la cámara y un paso, proporcional a la caída.
+            bool nowGrounded = controller.isGrounded || (velocity.y <= 0f && FeetOnGround());
+            if (!nowGrounded) { airborne = true; airborneMaxFall = Mathf.Max(airborneMaxFall, -velocity.y); }
+            else if (airborne)
+            {
+                airborne = false;
+                if (airborneMaxFall > 3f)
+                {
+                    landDip = Mathf.Clamp(airborneMaxFall * 0.012f, 0f, 0.09f) * GameSettings.CameraMotion;
+                    PlayFootstep();
+                }
+                airborneMaxFall = 0f;
+            }
 
             // Si una pared frena al jugador, la inercia acumulada no se queda "cargada" contra ella.
             if ((controller.collisionFlags & CollisionFlags.Sides) != 0 && Time.deltaTime > 0f)
@@ -305,6 +386,25 @@ namespace SomeonesHome
             }
 
             HeadBobAndSteps(localPlanar.magnitude, grounded);
+        }
+
+        bool JumpPressed()
+        {
+            var kb = Keyboard.current;
+            return (kb != null && kb.spaceKey.wasPressedThisFrame)
+                   || (GamepadGuard.Current != null && GamepadGuard.Current.buttonNorth.wasPressedThisFrame);
+        }
+
+        /// <summary>Esfera en los pies: ¿hay algo sólido debajo (que no sea el propio jugador)?</summary>
+        bool FeetOnGround()
+        {
+            float r = controller.radius * 0.9f;
+            Vector3 bottom = transform.position + controller.center - Vector3.up * (controller.height * 0.5f);
+            Vector3 c = bottom + Vector3.up * (r - 0.08f);
+            int n = Physics.OverlapSphereNonAlloc(c, r, feetHits, ~0, QueryTriggerInteraction.Ignore);
+            for (int i = 0; i < n; i++)
+                if (feetHits[i] != controller && !feetHits[i].transform.IsChildOf(transform)) return true;
+            return false;
         }
 
         void OnControllerColliderHit(ControllerColliderHit hit)
@@ -343,7 +443,8 @@ namespace SomeonesHome
             float amp = GameSettings.HeadBob ? bobAmplitude * GameSettings.CameraMotion * bobWeight : 0f;
             if (planarSpeed > walkSpeed * 1.2f) amp *= 1.15f;                  // corriendo, apenas más
             Vector3 p = headBase;
-            p.y += Mathf.Sin(bobTimer) * amp;
+            landDip = Mathf.MoveTowards(landDip, 0f, Time.deltaTime * 0.35f);
+            p.y += Mathf.Sin(bobTimer) * amp - landDip;
             p.x += Mathf.Cos(bobTimer * 0.5f) * amp * 0.35f;                  // vaivén lateral mínimo
             head.localPosition = p;
         }
@@ -370,6 +471,8 @@ namespace SomeonesHome
             controller.enabled = true;
             velocity = Vector3.zero;
             localPlanar = Vector2.zero;
+            jumping = airborne = false;
+            airborneMaxFall = 0f;
             suppressLookFrames = 2;
         }
     }

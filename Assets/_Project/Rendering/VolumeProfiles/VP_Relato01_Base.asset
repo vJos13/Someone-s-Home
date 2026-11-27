@@ -108,6 +108,8 @@ MonoBehaviour:
   - {fileID: 6086018783283780987}
   - {fileID: 5960526096476465177}
   - {fileID: 5383902972983174317}
+  - {fileID: 0}
+  - {fileID: 0}
 --- !u!114 &5383902972983174317
 MonoBehaviour:
   m_ObjectHideFlags: 3
@@ -126,7 +128,7 @@ MonoBehaviour:
     m_Value: 1
   intensity:
     m_OverrideState: 1
-    m_Value: 0.18
+    m_Value: 0.07
   response:
     m_OverrideState: 0
     m_Value: 0.8
@@ -154,7 +156,7 @@ MonoBehaviour:
     m_Value: {x: 0.5, y: 0.5}
   intensity:
     m_OverrideState: 1
-    m_Value: 0.28
+    m_Value: 0.22
   smoothness:
     m_OverrideState: 1
     m_Value: 0.45

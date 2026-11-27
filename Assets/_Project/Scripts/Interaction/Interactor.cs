@@ -18,6 +18,10 @@ namespace SomeonesHome
 
         FirstPersonController player;
         IInteractable current;
+        // Caché del último collider apuntado: GetComponentInParent recorre la jerarquía y se llamaba cada frame
+        // aunque se mirara el mismo objeto (checklist Semana 14: nada de GetComponent en Update).
+        Collider lastCollider;
+        IInteractable lastInteractable;
 
         void Awake() => player = GetComponent<FirstPersonController>();
 
@@ -40,8 +44,14 @@ namespace SomeonesHome
 
             if (GazeUtility.Raycast(rayOrigin.position, rayOrigin.forward, range, transform, out var hit))
             {
-                var candidate = hit.collider.GetComponentInParent<IInteractable>();
-                if (candidate != null && candidate.CanInteract) current = candidate;
+                if (hit.collider != lastCollider)
+                {
+                    lastCollider = hit.collider;
+                    lastInteractable = lastCollider.GetComponentInParent<IInteractable>();
+                }
+                var candidate = lastInteractable;
+                // (Object)candidate: si el interactuable se destruyó, la referencia de Unity es "null" aunque la interfaz no.
+                if (candidate != null && !(candidate is Object o && !o) && candidate.CanInteract) current = candidate;
             }
 
             HUD.Instance?.SetInteraction(current?.Prompt);
