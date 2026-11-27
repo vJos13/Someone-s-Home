@@ -1,0 +1,69 @@
+{
+ "view": "vista exterior (llegada), build de desarrollo con el Profiler conectado",
+ "frames_antes": 339,
+ "frames_despues": 530,
+ "frame_ms_antes": 3.914,
+ "frame_ms_despues": 2.531,
+ "top": [
+  {
+   "name": "WaitForLastPresentation",
+   "antes": 1.1396,
+   "despues": 0.0
+  },
+  {
+   "name": "Semaphore.WaitForSignal",
+   "antes": 0.9936,
+   "despues": 0.8517
+  },
+  {
+   "name": "ParticleSystem.CollisionModule",
+   "antes": 0.2055,
+   "despues": 0.2013
+  },
+  {
+   "name": "WaitForJobGroupID",
+   "antes": 0.1149,
+   "despues": 0.157
+  },
+  {
+   "name": "Inl_On Record Render Graph",
+   "antes": 0.1011,
+   "despues": 0.094
+  },
+  {
+   "name": "Assembly-CSharp.dll!SomeonesHome::FirstPersonController.Update() [Invoke]",
+   "antes": 0.0398,
+   "despues": 0.0308
+  },
+  {
+   "name": "GRD.CreateCullJobTree",
+   "antes": 0.0337,
+   "despues": 0.0342
+  },
+  {
+   "name": "ExecuteRenderGraph",
+   "antes": 0.032,
+   "despues": 0.0296
+  },
+  {
+   "name": "QueuePrepareIntegrateMainThreadObjects",
+   "antes": 0.0313,
+   "despues": 0.0139
+  },
+  {
+   "name": "Inl_ExecuteRenderGraph",
+   "antes": 0.029,
+   "despues": 0.0298
+  },
+  {
+   "name": "Inl_UniversalRenderPipeline.RenderSingleCameraInternal: Main Camera",
+   "antes": 0.0238,
+   "despues": 0.0225
+  },
+  {
+   "name": "Unity.Cinemachine.dll!Unity.Cinemachine::CinemachineBrain.LateUpdate() [Invoke]",
+   "antes": 0.0212,
+   "despues": 0.0218
+  }
+ ]
+}

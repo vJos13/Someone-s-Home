@@ -61,6 +61,9 @@ namespace SomeonesHome
             props = FindAnyObjectByType<Relato1Props>();
             phone = Phone.Instance;
             string B() => director.Beat;
+            // El bot no usa el menú principal y deja cada pista examinada un momento (como un jugador).
+            MainMenuController.SkipNow();
+            InspectionView.AutoCloseAfter = 2.5f;
 
             // ── Llegada ──
             Log("Intro");
@@ -221,6 +224,11 @@ namespace SomeonesHome
                 yield return new WaitUntil(() => props.flashlightPickup.Available);
                 yield return Walk(false, V(89.8f, 56.3f), V(86.5f, 56.6f));
                 yield return UseAt(props.flashlightPickup, V(85.6f, 59.0f));
+                if (director.ShedKey)
+                {
+                    Log("Y la llave del candado");
+                    yield return UseAt(director.ShedKey, V(85.6f, 59.4f));
+                }
                 Log("Al cobertizo con la linterna");
                 yield return Walk(false, V(86.2f, 60.5f), V(90.3f, 60.6f), V(91.9f, 60.9f));
                 yield return Look(door.transform.position + new Vector3(0.5f, 1.1f, 0f), 0.3f);
@@ -236,6 +244,12 @@ namespace SomeonesHome
                     yield return new WaitUntil(() => !props.stalker.Visible);
                 }
                 yield return Walk(false, V(84f, 65.4f), V(81.6f, 66.0f));
+                if (director.Padlock)
+                {
+                    Log("Abro el candado de la caja");
+                    yield return UseAt(director.Padlock, V(79.0f, 66.1f));
+                    yield return new WaitForSeconds(0.6f);
+                }
                 yield return UseAt(props.breaker, V(79.0f, 66.1f));
                 Log("Volvió la luz… y golpean el cobertizo");
                 yield return new WaitForSeconds(2.5f);
@@ -290,6 +304,12 @@ namespace SomeonesHome
                 yield return Look(props.trail[0].position, 0.5f);
                 yield return Walk(false, V(98.3f, 62.8f), V(95f, 64.6f), V(92f, 64.7f), V(88f, 65f), V(84f, 65.6f), V(81.2f, 66.6f),
                                   V(80.8f, 70f), V(81.2f, 76f), V(81.8f, 79.5f), V(82f, 82.3f));
+                if (director.FootprintSpot)
+                {
+                    Log("Las huellas cambian: las examino");
+                    yield return UseAt(director.FootprintSpot, V(81.6f, 78.4f));
+                    yield return new WaitUntil(() => !InspectionView.IsOpen);
+                }
                 yield return UseAt(props.collar, V(82f, 82.9f));
                 yield return new WaitUntil(() => B() == "papa" && props.dadTruck.Available);
                 Log("Llegó papá: a la camioneta");
@@ -314,7 +334,7 @@ namespace SomeonesHome
         IEnumerator LookBack()
         {
             var s = props.stalker;
-            if (s.Visible)
+            if (s.Visible && !director.Chasing)          // perseguido no se mira atrás: se corre
             {
                 Log("Miro atrás…");
                 yield return Look(s.HeadPosition, 1.2f);

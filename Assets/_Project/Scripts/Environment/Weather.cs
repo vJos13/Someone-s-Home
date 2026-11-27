@@ -95,6 +95,23 @@ namespace SomeonesHome
             nextLightning = R(30f, 70f);
         }
 
+        bool frozen;
+
+        /// <summary>
+        /// Clima fijo y reproducible (para medir rendimiento): sin cambios aleatorios ni relámpagos.
+        /// Lo usa PerfBenchmark para que todas las corridas vean la misma lluvia y las mismas nubes.
+        /// </summary>
+        public void Freeze(float cover, float rain, float wind)
+        {
+            frozen = true;
+            Cover = coverT = cover;
+            Rain = rainT = rain;
+            Wind = windT = wind;
+            fog = fogT = 1f + rain * 0.5f;
+            nextChange = float.MaxValue;
+            nextLightning = float.MaxValue;
+        }
+
         float R(float a, float b) => a + (float)rng.NextDouble() * (b - a);
         float R(Vector2 v) => R(v.x, v.y);
 
@@ -121,14 +138,14 @@ namespace SomeonesHome
             float dt = Time.deltaTime;
             if (dt <= 0f) return;
             var phase = atmo ? atmo.Phase : NightMode.Phase.Dusk;
-            if (phase != lastPhase)
+            if (phase != lastPhase && !frozen)
             {
                 // Al cambiar de fase hay un corte en la historia (tarjeta en negro): el clima puede saltar.
                 PickTargets(true);
                 lastPhase = phase;
             }
             nextChange -= dt;
-            if (nextChange <= 0f) PickTargets(false);
+            if (nextChange <= 0f && !frozen) PickTargets(false);
 
             // Todo cambia despacio, como el clima real.
             Cover = Mathf.MoveTowards(Cover, coverT, dt * 0.006f);

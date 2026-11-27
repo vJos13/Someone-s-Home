@@ -1,0 +1,3 @@
+frames=456
+315.3 B/frame  PlayerLoop > Update.ScriptRunBehaviourUpdate > BehaviourUpdate > Assembly-CSharp.dll!SomeonesHome::TapeOsd.Update() [Invoke] > GC.Alloc
+0.7 B/frame  Update.ScriptRunBehaviourUpdate > BehaviourUpdate > Assembly-CSharp.dll!SomeonesHome::TapeOsd.Update() [Invoke] > GC.Alloc

@@ -7,6 +7,8 @@ namespace SomeonesHome
     /// Regla clave del relato: solo cambia cuando NO lo miras.
     ///   Hidden → Standing → (miras a otro lado y vuelves) → Speaking → (miras a otro lado) → Gone
     /// La mandíbula (jaw) se mueve en Speaking; los ojos pueden brillar (material con emisión).
+    /// Con el modelo animado (Resources/Characters/LaCosa_Rig) respira y se balancea, y la cabeza y la boca son
+    /// huesos: se mueven después de la animación (LateUpdate).
     /// </summary>
     public class RiverCreature : MonoBehaviour
     {
@@ -26,9 +28,21 @@ namespace SomeonesHome
 
         Transform player;
         Quaternion jawBase;
+        RiggedCharacter rig;
+        Quaternion headLook;
+        bool headLookReady;
+        Quaternion headOffset;
 
         void Awake()
         {
+            var oldModel = visualRoot ? visualRoot.Find("LaCosa (modelo)") : null;
+            rig = RiggedCharacter.Attach(gameObject, "LaCosa_Rig", visualRoot, oldModel);
+            if (rig)
+            {
+                rig.walkReference = 1.2f; rig.runReference = 5.5f; rig.runThreshold = 3f;
+                head = rig.Bone("Head") ? rig.Bone("Head") : head;
+                jaw = rig.Bone("Jaw") ? rig.Bone("Jaw") : jaw;
+            }
             if (jaw) jawBase = jaw.localRotation;
             SetVisible(false);
         }
@@ -38,6 +52,7 @@ namespace SomeonesHome
         public void Appear()
         {
             Current = State.Standing;
+            headLookReady = false;
             SetVisible(true);
         }
 
@@ -59,14 +74,22 @@ namespace SomeonesHome
             if (visualRoot) visualRoot.gameObject.SetActive(v);
         }
 
-        void Update()
+        // Después de la animación: la cabeza gira muy lento hacia el jugador y la boca se abre al "hablar".
+        void LateUpdate()
         {
             if (Current == State.Hidden || Current == State.Gone) return;
 
             if (player && head)
             {
-                Quaternion look = Quaternion.LookRotation(player.position - head.position);
-                head.rotation = Quaternion.Slerp(head.rotation, look, headTrackSpeed * Time.deltaTime);
+                if (!headLookReady)
+                {
+                    headOffset = Quaternion.Inverse(transform.rotation) * head.rotation;
+                    headLook = head.rotation;
+                    headLookReady = true;
+                }
+                Quaternion look = Quaternion.LookRotation(player.position - head.position) * (rig ? headOffset : Quaternion.identity);
+                headLook = Quaternion.Slerp(headLook, look, headTrackSpeed * Time.deltaTime);
+                head.rotation = headLook;
             }
 
             if (jaw)
@@ -74,7 +97,8 @@ namespace SomeonesHome
                 float open = Current == State.Speaking
                     ? Mathf.Abs(Mathf.Sin(Time.time * jawSpeed) * Mathf.PerlinNoise(Time.time * 3f, 0f)) * jawOpenAngle
                     : 0f;
-                jaw.localRotation = jawBase * Quaternion.Euler(open, 0f, 0f);
+                if (rig) jaw.rotation = Quaternion.AngleAxis(open, transform.right) * jaw.rotation;   // sobre la pose animada
+                else jaw.localRotation = jawBase * Quaternion.Euler(open, 0f, 0f);
             }
         }
     }

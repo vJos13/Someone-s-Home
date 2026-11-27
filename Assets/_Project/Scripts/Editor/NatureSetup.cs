@@ -398,6 +398,7 @@ namespace SomeonesHome.EditorTools
             }
 
             PaintDetails(terrain);
+            PerfSettings.ApplyShadowRules();   // OPT-02: sin sombra en arbustos lejanos y objetos pequeños
             Debug.Log($"[Naturaleza] {treeCount} árboles, {bushCount} arbustos, {rockCount} rocas, {steps} piedras de sendero, {poles.Count} postes.");
         }
 
@@ -457,7 +458,7 @@ namespace SomeonesHome.EditorTools
             data.SetDetailLayer(0, 0, 0, a);
             data.SetDetailLayer(0, 0, 1, b);
             data.SetDetailLayer(0, 0, 2, c);
-            terrain.detailObjectDistance = 55f;
+            terrain.detailObjectDistance = PerfSettings.GrassDistance;
             terrain.detailObjectDensity = 1f;
             EditorUtility.SetDirty(data);
         }

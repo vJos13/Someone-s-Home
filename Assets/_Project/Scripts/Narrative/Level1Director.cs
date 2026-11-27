@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
@@ -17,8 +18,11 @@ namespace SomeonesHome
     ///   3. El río: la voz, la cosa del otro lado, el grito de Sam (beats originales).
     ///   4. El regreso: nos sigue. Cada vez que miras atrás está más cerca.
     ///   5. La noche: Sam te escribe desde su saco. Golpes, voces que imitan. Cortina, cerrojo, luz.
-    ///      Se corta la luz: linterna, cobertizo, breaker. Si abres la puerta (sin motivo): final malo.
+    ///      Se corta la luz: linterna y llave del candado, cobertizo, breaker. Si abres la puerta (sin motivo): final malo.
     ///   6. La mañana siguiente: Sam afuera, las huellas alrededor de la casa, el collar, llega papá.
+    /// Antes de todo, si está puesto, el menú principal (MainMenuController) — el relato espera a que se pulse JUGAR.
+    /// Pistas (foto, nota, reloj, collar, huellas): se examinan en 3D con InspectionView.
+    /// Objetos (celular, bolsa, linterna, llave, collar): entran y salen del inventario (InventorySystem).
     /// Todo es una corrutina lineal; las tareas en paralelo usan corrutinas auxiliares.
     /// </summary>
     public class Level1Director : MonoBehaviour
@@ -72,6 +76,8 @@ namespace SomeonesHome
         enum Carry { None, Plates, Bag }
         Carry carrying;
         bool tableSet, trashOut;
+        bool trashShown;                 // la bolsa ya está en el tacho (se tacha al instante, antes del vistazo)
+        readonly List<Component> goalTargets = new();
 
         // Regreso / noche
         bool stalkerSteps;
@@ -80,11 +86,26 @@ namespace SomeonesHome
         bool errand;                                  // de noche, yendo al cobertizo: abrir la puerta no es el final malo
         bool breakerUp;
         GameObject tammyGO, emilyGO;
+        NpcLife tammyLife, emilyLife;
         Pose tammyHome, emilyHome;
         readonly System.Collections.Generic.Dictionary<Material, Color> bulbEmission = new();
 
         /// <summary>Paso actual de la historia (lo lee el bot de pruebas).</summary>
         public string Beat { get; private set; } = "intro";
+        /// <summary>La cosa está persiguiendo al jugador por el campo (el bot no se detiene a mirar atrás).</summary>
+        public bool Chasing { get; private set; }
+        /// <summary>Veces que la cosa alcanzó al jugador en la persecución (pruebas).</summary>
+        public int ChaseCatches { get; private set; }
+
+        /// <summary>Asiento del columpio del río (el menú principal encuadra ahí).</summary>
+        public Transform SwingSeat => swingSeat;
+        /// <summary>Llave del candado del cobertizo y el candado de la caja del breaker (se crean en el apagón).</summary>
+        public SimpleInteractable ShedKey { get; private set; }
+        public SimpleInteractable Padlock { get; private set; }
+        /// <summary>Punto para examinar las huellas donde cambian (la mañana siguiente, opcional).</summary>
+        public SimpleInteractable FootprintSpot { get; private set; }
+
+        InventorySystem inventory;
 
         /// <summary>
         /// Botón "Saltar historia" (GameMenu): disponible durante las tarjetas de la intro y la charla de llegada,
@@ -126,7 +147,17 @@ namespace SomeonesHome
             emilyGO = GameObject.Find("Emily");
             if (tammyGO) tammyHome = new Pose(tammyGO.transform.position, tammyGO.transform.rotation);
             if (emilyGO) emilyHome = new Pose(emilyGO.transform.position, emilyGO.transform.rotation);
+            // Modelos animados (Blender): caminan por la cocina, te miran y gesticulan al hablar.
+            if (tammyGO) tammyLife = NpcLife.Setup(tammyGO, "Tammy_Rig", "Tammy", tammyGO.transform.Find("Tammy (modelo)"));
+            if (emilyGO) emilyLife = NpcLife.Setup(emilyGO, "Emily_Rig", "Emily", emilyGO.transform.Find("Emily (modelo)"));
+            if (!(props && props.arrivalSpawn)) KitchenRoutines();
             SetupDay();
+            SetupInventory();
+
+            // ── Menú principal (misma escena): el relato espera a JUGAR ──
+            Lock(true, true);
+            while (MainMenuController.Active) yield return null;
+            inventory?.Add(ItemId.Phone, equip: false);
 
             // ── 0 · INTRO ──────────────────────────────────────────────
             Lock(true, true);
@@ -176,6 +207,7 @@ namespace SomeonesHome
                 StartCoroutine(TableChore());
                 StartCoroutine(TrashChore());
                 yield return new WaitUntil(() => tableSet && trashOut);
+                hud.CompleteObjective();
             }
             yield return new WaitForSeconds(1f);
 
@@ -190,6 +222,7 @@ namespace SomeonesHome
                 phone.CallRequested = false;
                 yield return new WaitUntil(() => phone.CallRequested);
                 phone.CallAvailable = false;
+                hud.CompleteObjective();
                 hud.SetObjective(null);
                 yield return phone.Call(brotherName, 2, $"Hola, soy {brotherName}. Deja tu mensaje… o no.");
                 yield return hud.SayAndWait("", "No contesta. Siempre contesta.");
@@ -199,7 +232,9 @@ namespace SomeonesHome
 
             // ── 4 · EL CAMPO ──────────────────────────────────────────
             Beat = "campo";
-            yield return WaitTrigger(fieldTrigger);
+            // El trigger del campo (franja z 70–74) se activa recién aquí. Si el jugador ya cruzó el campo durante la
+            // llamada, o lo rodea por un costado, nunca lo pisaría y la escena del río no empezaría: basta con estar más allá.
+            yield return WaitTrigger(fieldTrigger, () => P.z > 75f);
             tension.SetTarget(0.08f);
             hud.Say("", "El patio trasero en realidad es un campo.");
 
@@ -214,6 +249,7 @@ namespace SomeonesHome
             // El trigger está frente al columpio; si llega por un costado o por detrás de Sam, basta con acercarse.
             yield return WaitTrigger(swingTrigger, () => NearBrother(9f));
             Beat = "columpio";
+            hud.CompleteObjective();
             hud.SetObjective(null);
             tension.SetTarget(0.15f);
             yield return hud.SayAndWait("", $"Ahí está {brotherName}, en el columpio. Podría empujarlo un poco y asustarlo…");
@@ -295,8 +331,10 @@ namespace SomeonesHome
             StartCoroutine(VanishWhenNotObserved());
             yield return brother.TurnTo(player.transform.position, 0.35f);
             brother.SetShaking(false);
+            brother.Scream();
             if (brotherScream) brotherScream.Play();
             yield return hud.SayAndWait(brotherName, "¡AAAH!", 1.2f);
+            brother.SetShaking(true);                      // habla temblando, abrazándose
             tension.SetTarget(0.7f);
             yield return hud.SayAndWait(playerName, "¿Qué pasó?");
             yield return hud.SayAndWait(brotherName, "¿Tú también lo viste?");
@@ -316,10 +354,12 @@ namespace SomeonesHome
             var steps = StartCoroutine(StepsBehind());
 
             yield return WaitTrigger(houseReturnTrigger);
+            hud.CompleteObjective();
             StopCoroutine(mimic);
             if (stalk != null) StopCoroutine(stalk);
             StopCoroutine(steps);
             stalkerSteps = false;
+            Chasing = false;
             if (props && props.stalker) props.stalker.Hide();
             Lock(true, true);
             hud.SetObjective(null);
@@ -407,12 +447,15 @@ namespace SomeonesHome
             // ── La mochila ──
             Beat = "mochila";
             backDoor.SetLocked(false);
-            hud.SetObjective("Saca tu mochila de la camioneta");
+            const string bpTake = "Saca tu mochila de la camioneta", bpDrop = "Déjala en la sala";
+            hud.SetObjective(Task(false, bpTake) + "\n" + Task(false, bpDrop));
             Avail(props.backpack, true);
-            yield return WaitUse(props.backpack, null);
+            Goal(props.backpack);
+            yield return WaitUse(props.backpack, null);         // [E] Agarrar mochila → inventario
             Avail(props.backpack, false);
             props.backpack.gameObject.SetActive(false);
-            hud.SetObjective("Lleva tu mochila adentro");
+            hud.SetObjective(Task(true, bpTake) + "\n" + Task(false, bpDrop));     // tachado al instante
+            Goal();
             bool triedFront = false;
             Avail(props.frontDoor, true);
             void Front(SimpleInteractable _)
@@ -422,11 +465,13 @@ namespace SomeonesHome
             }
             if (props.frontDoor) props.frontDoor.Used += Front;
             props.backpackDrop.gameObject.SetActive(true);
-            Avail(props.backpackDrop, true);
-            yield return WaitUse(props.backpackDrop, null);
+            yield return Deliver(ItemId.Backpack, props.backpackDrop, 1.8f);   // [E] aquí o soltarla con [Q] al lado
+            hud.CompleteObjective();
             Avail(props.backpackDrop, false);
             props.backpackDrop.gameObject.SetActive(false);
             if (props.frontDoor) { props.frontDoor.Used -= Front; Avail(props.frontDoor, false); }
+            props.backpack.Item = ItemId.None;                  // desde aquí es decorado
+            Avail(props.backpack, false);
             props.backpack.transform.SetPositionAndRotation(props.backpackPlaced.position, props.backpackPlaced.rotation);
             props.backpack.gameObject.SetActive(true);
             hud.SetObjective(null);
@@ -449,12 +494,21 @@ namespace SomeonesHome
                     seen[i] = true; any = true; seenCount++;
                     Avail(items[i], false);
                     hud.SetObjective($"Explora la casa ({seenCount}/{total})");
+                    // La foto, la nota y el reloj se examinan de cerca; la ventana es solo mirar afuera.
+                    switch (i)
+                    {
+                        case 0: InspectionView.Open(InspectModels.Photo(), "Foto vieja"); break;
+                        case 1: InspectionView.Open(InspectModels.FridgeNote(), "Nota del refri", default, 0.22f); break;
+                        case 2: InspectionView.Open(InspectModels.Clock(), "Reloj de la pared"); break;
+                    }
                     yield return InspectLines(i);
+                    yield return InspectionView.WaitClosed();
                 }
                 idle = any ? 0f : idle + Time.deltaTime;
                 if (idle > 40f) { idle = -999f; hud.Say("", "La foto de la pared, el refri, el reloj, la ventana…"); }
                 yield return null;
             }
+            hud.CompleteObjective();
             hud.SetObjective(null);
             yield return new WaitForSeconds(1f);
             yield return hud.SayAndWait("Tammy", $"{playerName}, ¿ya te instalaste? Ven a la cocina un momento.");
@@ -496,8 +550,12 @@ namespace SomeonesHome
         /// <summary>Tammy y Emily entran a la casa cuando no las estás mirando.</summary>
         IEnumerator GoInsideWhenUnseen()
         {
+            // Caminan hacia la puerta de atrás de verdad; entran (se teletransportan) cuando no las miras.
+            var door = new Vector3(92.3f, 0f, 64.9f);
+            if (tammyLife) { var d = door; d.y = tammyLife.transform.position.y; StartCoroutine(tammyLife.WalkTo(d)); }
+            if (emilyLife) { var d = door + new Vector3(-0.8f, 0f, 0.6f); d.y = emilyLife.transform.position.y; StartCoroutine(emilyLife.WalkTo(d, 1.25f)); }
             float t = 0f;
-            while (t < 10f)
+            while (t < 25f)
             {
                 bool seenT = tammyGO && GazeUtility.FlatAngleTo(eye, tammyGO.transform.position) < 70f;
                 bool seenE = emilyGO && GazeUtility.FlatAngleTo(eye, emilyGO.transform.position) < 70f;
@@ -507,25 +565,45 @@ namespace SomeonesHome
             }
             if (tammyGO) tammyGO.transform.SetPositionAndRotation(tammyHome.position, tammyHome.rotation);
             if (emilyGO) emilyGO.transform.SetPositionAndRotation(emilyHome.position, emilyHome.rotation);
+            KitchenRoutines();
+        }
+
+        /// <summary>En la cocina: Tammy va y viene por la mesada cocinando; Emily da vueltas cerca de la mesa.</summary>
+        void KitchenRoutines()
+        {
+            if (tammyLife)
+            {
+                tammyLife.StopWalking();
+                Vector3 h = tammyHome.position;
+                tammyLife.SetRoute(h, new Vector3(85.25f, h.y, 59.4f), h, new Vector3(85.3f, h.y, 55.9f));
+            }
+            if (emilyLife)
+            {
+                emilyLife.StopWalking();
+                Vector3 h = emilyHome.position;
+                emilyLife.SetRoute(h, new Vector3(90.7f, h.y, 56.6f), h, new Vector3(90.4f, h.y, 59.9f));
+            }
         }
 
         void UpdateChoresObjective()
         {
             string Line(bool done, string s) => done ? $"<s><color=#999>{s}</color></s>" : s;
-            string table = carrying == Carry.Plates ? "Pon los platos en la mesa" : "Pon la mesa (platos en la mesada)";
-            string trash = carrying == Carry.Bag ? "Tira la bolsa al tacho de afuera" : "Saca la basura";
-            hud.SetObjective(Line(tableSet, table) + "\n" + Line(trashOut, trash));
+            bool plates = inventory ? inventory.Has(ItemId.Plates) : carrying == Carry.Plates;
+            bool bag = inventory ? inventory.Has(ItemId.TrashBag) : carrying == Carry.Bag;
+            string table = plates ? "Pon los platos en la mesa" : "Pon la mesa (platos en la mesada)";
+            string trash = bag ? "Tira la bolsa al tacho de afuera" : "Saca la basura";
+            hud.SetObjective(Line(tableSet, table) + "\n" + Line(trashOut || trashShown, trash));
         }
 
         IEnumerator TableChore()
         {
             Avail(props.platesStack, true);
-            yield return WaitUse(props.platesStack, () => carrying == Carry.None);
+            ObjectiveHighlighter.Mark(props.platesStack);
+            yield return WaitUse(props.platesStack, inventory ? null : () => carrying == Carry.None);
             carrying = Carry.Plates;
             props.platesStack.gameObject.SetActive(false);
             UpdateChoresObjective();
-            Avail(props.table, true);
-            yield return WaitUse(props.table, null);
+            yield return Deliver(ItemId.Plates, props.table, 1.9f);     // [E] en la mesa o soltarlos encima con [Q]
             Avail(props.table, false);
             carrying = Carry.None;
             props.tableSetting.SetActive(true);
@@ -537,12 +615,14 @@ namespace SomeonesHome
         IEnumerator TrashChore()
         {
             Avail(props.trashBag, true);
-            yield return WaitUse(props.trashBag, () => carrying == Carry.None);
+            ObjectiveHighlighter.Mark(props.trashBag);
+            yield return WaitUse(props.trashBag, inventory ? null : () => carrying == Carry.None);
             carrying = Carry.Bag;
             props.trashBag.gameObject.SetActive(false);
+            if (inventory && !inventory.Has(ItemId.TrashBag)) inventory.Add(ItemId.TrashBag, equip: true);
             UpdateChoresObjective();
-            Avail(props.trashBin, true);
-            yield return WaitUse(props.trashBin, null);
+            yield return Deliver(ItemId.TrashBag, props.trashBin, 1.6f); // [E] en el tacho o botarla al lado con [Q]
+            trashShown = true;
             Avail(props.trashBin, false);
             carrying = Carry.None;
             Avail(props.trashBag, false);                  // la bolsa queda adentro del tacho tapado
@@ -550,6 +630,70 @@ namespace SomeonesHome
             yield return Glimpse();
             trashOut = true;
             UpdateChoresObjective();
+        }
+
+        /// <summary>
+        /// Entrega de un objeto del inventario en su lugar: con [E] sobre el destino (solo disponible si lo llevas)
+        /// o soltándolo con [Q] cerca. Al entregarlo sale del inventario y desaparece la copia soltada.
+        /// Si se suelta lejos, queda en el suelo y se vuelve a agarrar con [E].
+        /// </summary>
+        IEnumerator Deliver(ItemId id, SimpleInteractable target, float radius)
+        {
+            if (!target) yield break;
+            if (!inventory)
+            {
+                Avail(target, true);
+                yield return WaitUse(target, null);
+                yield break;
+            }
+            bool done = false;
+            void OnDrop(ItemId dropped, GameObject copy)
+            {
+                if (dropped != id || !copy) return;
+                Vector3 d = copy.transform.position - target.transform.position;
+                if (new Vector2(d.x, d.z).sqrMagnitude <= radius * radius && Mathf.Abs(d.y) < 2.5f) done = true;
+                else ObjectiveHighlighter.Mark(copy.transform);   // soltado lejos: brilla él hasta que lo recojas
+            }
+            // El destino brilla solo mientras llevas el objeto (su Available lo sigue).
+            ObjectiveHighlighter.Mark(target);
+            void OnChanged() => UpdateChoresObjectiveIfActive();
+            inventory.Dropped += OnDrop;
+            inventory.Changed += OnChanged;
+            int start = target.UseCount;
+            while (!done)
+            {
+                target.Available = inventory.Has(id);
+                if (target.UseCount > start) done = true;
+                yield return null;
+            }
+            inventory.Dropped -= OnDrop;
+            inventory.Changed -= OnChanged;
+            ObjectiveHighlighter.Mark(target, false);
+            target.Available = false;
+            inventory.Remove(id);
+            inventory.ClearWorldCopies(id);
+            OneShotAudio.Play(ProceduralAudio.Build(ProceduralAudio.Kind.Knock, 0.12f, 9), target.transform.position, 0.35f);
+        }
+
+        /// <summary>Línea de una lista de tareas: tachada y atenuada si ya se cumplió.</summary>
+        static string Task(bool done, string text) => done ? $"<s><color=#999>{text}</color></s>" : text;
+
+        /// <summary>Los objetos que pide el objetivo actual brillan (ObjectiveHighlighter); los anteriores se apagan.</summary>
+        void Goal(params Component[] targets)
+        {
+            foreach (var t in goalTargets) ObjectiveHighlighter.Mark(t, false);
+            goalTargets.Clear();
+            foreach (var t in targets)
+            {
+                if (!t) continue;
+                ObjectiveHighlighter.Mark(t, true);
+                goalTargets.Add(t);
+            }
+        }
+
+        void UpdateChoresObjectiveIfActive()
+        {
+            if (Beat == "tareas") UpdateChoresObjective();
         }
 
         /// <summary>Junto al tacho: el perro se pone loco, se calla de golpe… y hay algo en la colina.</summary>
@@ -621,8 +765,116 @@ namespace SomeonesHome
             stalkerSteps = true;
             yield return StalkBeat(pts[0], () => P.z < 117.5f && P.y > 9f);      // subiendo por las rocas → en la orilla
             yield return StalkBeat(pts[1], () => P.y > 18.5f);                    // arriba de la colina → al pie de las rocas
-            yield return StalkBeat(pts[2], () => P.z < 92f);                      // en el campo → en el borde de la colina
-            yield return StalkBeat(pts[3], () => P.z < 74f);                      // casi en la casa → en el campo, cerca
+            // Ya en el campo: deja de esconderse y corre hacia ti desde el borde de la colina.
+            yield return new WaitUntil(() => P.y > 18.5f && P.z < 99f);
+            yield return FieldChase(pts[2].position);
+        }
+
+        // ════════════════════════════════════════════════════════════════
+        //  PERSECUCIÓN POR EL CAMPO
+        // ════════════════════════════════════════════════════════════════
+        const float ChaseSpeed = 5.6f;          // corriendo (4.4 m/s) llegas con unos metros de ventaja; caminando no
+        const float ChaseCatchUp = 6.8f;        // si queda muy atrás, acelera (nunca deja de ser una amenaza)
+        const float CatchDistance = 1.5f;
+        static AudioClip shriekClip;
+
+        IEnumerator FieldChase(Vector3 spawn)
+        {
+            var s = props.stalker;
+            Vector3 restart = P;
+            Quaternion restartRot = player.transform.rotation;
+            var hoof = ProceduralAudio.Build(ProceduralAudio.Kind.Step, 0.3f, 57);
+            shriekClip ??= CreatureShriek();
+            while (true)
+            {
+                stalkerSteps = false;
+                s.PlaceAt(Stalker.Ground(spawn), P);
+                s.Chasing = true;
+                Chasing = true;
+                OneShotAudio.Play(shriekClip, s.HeadPosition, 1f);
+                VhsLook.Pulse(0.8f, 0.9f);
+                tension.SetTarget(1f);
+                hud.SetObjective("¡CORRE A LA CASA!");
+                hud.Say("", ChaseCatches == 0 ? "¡Viene corriendo!" : "¡Otra vez! ¡No te detengas!");
+
+                // Un instante quieta en el borde, mirándote… y arranca.
+                for (float t = 0f; t < 1.1f; t += Time.deltaTime) yield return null;
+                float speed = 1.5f, nextHoof = 0f;
+                while (true)
+                {
+                    float dt = Time.deltaTime;
+                    Vector3 flat = s.transform.position - P; flat.y = 0f;
+                    float dist = flat.magnitude;
+                    speed = Mathf.MoveTowards(speed, dist > 20f ? ChaseCatchUp : ChaseSpeed, 3.5f * dt);
+                    s.ChaseStep(P, speed, dt);
+                    // Pezuñas en el pasto, cada vez más rápidas y fuertes al acercarse.
+                    nextHoof -= dt;
+                    if (nextHoof <= 0f)
+                    {
+                        nextHoof = Mathf.Lerp(0.2f, 0.32f, Mathf.InverseLerp(6.5f, 3f, speed));
+                        OneShotAudio.Play(hoof, s.transform.position, Mathf.Lerp(1f, 0.45f, dist / 25f));
+                    }
+                    VhsLook.Pulse(Mathf.Clamp01(1f - dist / 14f) * 0.35f, 0.15f);
+                    if (dist < CatchDistance) break;
+                    yield return null;
+                }
+
+                // ── Te alcanzó ──
+                ChaseCatches++;
+                yield return Caught(s);
+                s.Hide();
+                Chasing = false;
+                player.Teleport(restart, restartRot);
+                player.Pitch = 4f;
+                yield return new WaitForSeconds(0.6f);
+                yield return hud.Fade(0f, 1.2f);
+                Lock(false, false);
+                yield return new WaitForSeconds(1.4f);     // ventaja: arranca de nuevo atrás tuyo
+            }
+        }
+
+        IEnumerator Caught(Stalker s)
+        {
+            Lock(true, true);
+            s.Chasing = false;
+            Vector3 fwd = player.transform.forward; fwd.y = 0f; fwd.Normalize();
+            // Se planta delante, encima de ti; la cámara gira de golpe hacia su cara.
+            Vector3 at = Stalker.Ground(P + fwd * 1.3f);
+            s.PlaceAt(at, P);
+            Vector3 toHead = s.HeadPosition - eye.position;
+            player.Teleport(P, Quaternion.LookRotation(new Vector3(toHead.x, 0f, toHead.z)));
+            player.Pitch = -Mathf.Atan2(toHead.y, new Vector2(toHead.x, toHead.z).magnitude) * Mathf.Rad2Deg;
+            OneShotAudio.Play(shriekClip, s.HeadPosition, 1f);
+            VhsLook.Pulse(1.6f, 1.3f);
+            tension.SetTarget(1f);
+            yield return new WaitForSeconds(0.75f);
+            hud.SetFadeInstant(1f);
+            hud.SetObjective(null);
+            yield return hud.ShowCard("Te alcanzó.", 1.6f);
+        }
+
+        /// <summary>Chillido de la cosa: un grito casi humano que cae de tono, con aire y aspereza (sintetizado).</summary>
+        static AudioClip CreatureShriek()
+        {
+            const int rate = 22050;
+            int n = (int)(rate * 1.4f);
+            var data = new float[n];
+            var rnd = new System.Random(7);
+            float phase = 0f, phase2 = 0f;
+            for (int i = 0; i < n; i++)
+            {
+                float t = i / (float)rate;
+                float f = Mathf.Lerp(1150f, 420f, Mathf.Pow(t / 1.4f, 0.7f)) * (1f + 0.04f * Mathf.Sin(t * 38f));
+                phase += f / rate; phase2 += f * 1.51f / rate;
+                float saw = 2f * (phase - Mathf.Floor(phase + 0.5f));
+                float tone = saw * 0.6f + Mathf.Sin(2f * Mathf.PI * phase2) * 0.3f;
+                float noise = (float)(rnd.NextDouble() * 2 - 1);
+                float env = Mathf.Min(1f, t * 25f) * Mathf.Pow(1f - t / 1.4f, 1.6f);
+                data[i] = Mathf.Clamp((tone * 0.75f + noise * 0.35f) * env * 0.8f, -1f, 1f);
+            }
+            var clip = AudioClip.Create("SFX_ChillidoCosa", n, 1, rate, false);
+            clip.SetData(data, 0);
+            return clip;
         }
 
         bool firstStalkSeen;
@@ -741,6 +993,7 @@ namespace SomeonesHome
                 }
                 if (s.WasSeen)
                 {
+                    hud.CompleteObjective();
                     tension.SetTarget(0.7f);
                     yield return hud.SayAndWait("", "Había algo afuera. Pegado al vidrio.");
                     float since = 0f;
@@ -780,8 +1033,11 @@ namespace SomeonesHome
                 NightObjective();
             };
             NightObjective();
+            Goal(props.window, props.deadbolt, props.lightSwitch);
             var harass = StartCoroutine(Harass());
             yield return new WaitUntil(() => (curtainDone && boltDone && lightDone) || badEnding);
+            Goal();
+            if (!badEnding) hud.CompleteObjective();
             StopCoroutine(harass);
             if (props.doorRattle) props.doorRattle.Stop();
             if (badEnding) yield break;
@@ -793,8 +1049,11 @@ namespace SomeonesHome
             yield return new WaitForSeconds(1.5f);
             yield return hud.SayAndWait("", "Silencio.");
             Avail(props.sleepingBag, true);
+            Goal(props.sleepingBag);
             yield return WaitUse(props.sleepingBag, null);
             Avail(props.sleepingBag, false);
+            Goal();
+            hud.CompleteObjective();
             hud.SetObjective(null);
             Lock(true, true);
             yield return hud.Fade(0.85f, 2f);
@@ -826,28 +1085,72 @@ namespace SomeonesHome
             yield return hud.SayAndWait(hall, $"¿{playerName}? ¿Se fue la luz?…");
             yield return hud.SayAndWait(hall, "Siempre se bota el breaker. La caja está en el cobertizo, al lado de la casa.");
             yield return hud.SayAndWait(hall, "Hay una linterna en la mesada, junto al fregadero. Porfa, que si no se echa a perder todo lo del refri.");
+            yield return hud.SayAndWait(hall, "Y la llave del candado de la caja está ahí mismo, al lado.");
 
-            hud.SetObjective("Toma la linterna (mesada de la cocina)");
+            // Linterna y llave: las dos en la mesada, en cualquier orden.
+            CreateShedKeyAndPadlock();
             Avail(props.flashlightPickup, true);
-            yield return WaitUse(props.flashlightPickup, null);
-            Avail(props.flashlightPickup, false);
-            props.flashlightPickup.gameObject.SetActive(false);
-            props.flashlight.Give();
-            hud.Say("", "Funciona.  [F] prende y apaga la linterna.", 3f);
-            StartCoroutine(SamTextsMany("no vayas", "es broma", "ve rápido"));
+            Avail(ShedKey, true);
+            bool gotLight = false, gotKey = false;
+            void PowerObjective()
+            {
+                string Line(bool done, string t) => done ? $"<s><color=#999>{t}</color></s>" : t;
+                hud.SetObjective(Line(gotLight, "Toma la linterna (mesada de la cocina)") + "\n" + Line(gotKey, "Toma la llave del candado"));
+            }
+            PowerObjective();
+            Goal(props.flashlightPickup, ShedKey);
+            while (!gotLight || !gotKey)
+            {
+                if (!gotLight && props.flashlightPickup.UseCount > 0)
+                {
+                    gotLight = true;
+                    Avail(props.flashlightPickup, false);
+                    props.flashlightPickup.gameObject.SetActive(false);
+                    props.flashlight.Give();
+                    hud.Say("", "Funciona.  [F] o clic: prender y apagar.  [1–5] o rueda: cambiar de objeto.  [Q]: soltar.", 4f);
+                    StartCoroutine(SamTextsMany("no vayas", "es broma", "ve rápido"));
+                    PowerObjective();
+                }
+                if (!gotKey && ShedKey && ShedKey.UseCount > 0)
+                {
+                    gotKey = true;
+                    Avail(ShedKey, false);
+                    ShedKey.gameObject.SetActive(false);
+                    inventory?.Add(ItemId.ShedKey, equip: !gotLight);
+                    PowerObjective();
+                }
+                if (!ShedKey) gotKey = true;
+                yield return null;
+            }
 
             errand = true;
             breakerUp = false;
-            hud.SetObjective("Ve al cobertizo y sube el breaker");
-            Avail(props.breaker, true);
+            const string pLock = "Abre el candado de la caja (cobertizo)", pBreaker = "Sube el breaker: restaura la luz";
+            hud.CompleteObjective();
+            hud.SetObjective(Padlock ? Task(false, pLock) + "\n" + Task(false, pBreaker) : Task(false, pBreaker));
+            Goal(Padlock, props.breaker);           // el breaker brilla recién cuando el candado está abierto
             var scares = StartCoroutine(OutsideScares());
+            // La caja tiene candado: primero la llave, después el breaker.
+            if (Padlock)
+            {
+                // Sin la llave en el inventario no se puede abrir.
+                yield return WaitUse(Padlock, () => !inventory || inventory.Has(ItemId.ShedKey));
+                Padlock.Available = false;
+                OneShotAudio.Play(ProceduralAudio.Build(ProceduralAudio.Kind.Click, 0.2f, 31), Padlock.transform.position, 0.9f);
+                StartCoroutine(DropPadlock(Padlock.transform));
+                hud.SetObjective(Task(true, pLock) + "\n" + Task(false, pBreaker));
+                hud.Say("", "Abierto.", 1.5f);
+            }
+            Avail(props.breaker, true);
             yield return WaitUse(props.breaker, null);
+            hud.CompleteObjective();                       // tachado en el mismo instante en que sube la palanca
+            Goal();
             breakerUp = true;
             Avail(props.breaker, false);
             StopCoroutine(scares);
             if (props.stalker) props.stalker.Hide();
             if (props.breakerLever) props.breakerLever.localRotation *= Quaternion.Euler(0f, 0f, 150f);
-            if (props.powerClick && props.powerClick.clip) AudioSource.PlayClipAtPoint(props.powerClick.clip, props.breaker.transform.position, 0.8f);
+            if (props.powerClick && props.powerClick.clip) OneShotAudio.Play(props.powerClick.clip, props.breaker.transform.position, 0.8f);
             SetHouseLights(true);
             tension.SetTarget(0.45f);
             yield return hud.SayAndWait("", "Listo. Volvió la luz.");
@@ -867,6 +1170,7 @@ namespace SomeonesHome
             yield return CornerScare();
 
             yield return WaitTrigger(houseReturnTrigger);
+            hud.CompleteObjective();
             backDoor.ForceClose(false);
             errand = false;
             hud.SetObjective(null);
@@ -982,6 +1286,7 @@ namespace SomeonesHome
             }
             hud.SetObjective($"Sal a buscar a {brotherName}");
             while (Vector3.Distance(P, brother.transform.position) > 3.2f) yield return null;
+            hud.CompleteObjective();
 
             Beat = "huellas";
             hud.SetObjective(null);
@@ -1000,20 +1305,29 @@ namespace SomeonesHome
             var reached = new bool[props.trail.Length];
             var watch = StartCoroutine(WatchTrail(reached));
             Avail(props.collar, true);
+            CreateFootprintSpot();
             yield return Checkpoint(reached, 4, "Se quedó parado aquí. Justo afuera de la puerta.", "Cuando la voz decía que era Tammy.");
             yield return Checkpoint(reached, 7, "Siguen hasta el cobertizo.", "Anoche yo estuve ahí adentro.");
             tension.SetTarget(0.5f);
             yield return Checkpoint(reached, 10, "Aquí cambian.", "Ya no son de venado. Son de pie. De pie descalzo.");
             yield return Checkpoint(reached, 11, "Terminan aquí. En medio del campo.");
             StopCoroutine(watch);
+            hud.CompleteObjective();
             if (props.collar.UseCount == 0) hud.SetObjective("Hay algo en el pasto");
+            Goal(props.collar);
             while (props.collar.UseCount == 0) yield return null;
+            Goal();
+            hud.CompleteObjective();
             Avail(props.collar, false);
             props.collar.gameObject.SetActive(false);
             hud.SetObjective(null);
             tension.SetTarget(0.6f);
+            var collarRenderer = props.collar.GetComponent<Renderer>();
+            InspectionView.Open(InspectModels.Collar(collarRenderer), "Collar", new Vector3(-58f, 0f, 0f), 0.24f);
             yield return hud.SayAndWait("", "Un collar de perro. La placa dice \"BUSTER\".");
             yield return hud.SayAndWait("", "El perro de los vecinos. El que se calló de golpe ayer.");
+            yield return InspectionView.WaitClosed();
+            inventory?.Add(ItemId.BusterCollar, equip: false);
             yield return new WaitForSeconds(2f);
 
             Beat = "papa";
@@ -1025,8 +1339,11 @@ namespace SomeonesHome
             yield return hud.SayAndWait("", "Papá. Llegó un día antes.");
             hud.SetObjective("Ve a la camioneta de papá");
             Avail(props.dadTruck, true);
+            Goal(props.dadTruck);
             yield return WaitUse(props.dadTruck, null);
             Avail(props.dadTruck, false);
+            Goal();
+            hud.CompleteObjective();
             hud.SetObjective(null);
             Lock(true, true);
             yield return hud.Fade(1f, 1.5f);
@@ -1109,7 +1426,7 @@ namespace SomeonesHome
             tension.SetTarget(1f);
             yield return new WaitForSeconds(0.9f);
             // De noche Sam está oculto (su AudioSource desactivado): el grito suena desde un objeto temporal.
-            if (brotherScream && brotherScream.clip) AudioSource.PlayClipAtPoint(brotherScream.clip, P + Vector3.up, brotherScream.volume);
+            if (brotherScream && brotherScream.clip) OneShotAudio.Play(brotherScream.clip, P + Vector3.up, brotherScream.volume);
             hud.SetFadeInstant(1f);
             if (s) s.Hide();
             yield return new WaitForSeconds(1.5f);
@@ -1154,6 +1471,119 @@ namespace SomeonesHome
         }
 
         static void Avail(SimpleInteractable i, bool on) { if (i) i.Available = on; }
+
+        // ════════════════════════════════════════════════════════════════
+        //  INVENTARIO Y OBJETOS NUEVOS
+        // ════════════════════════════════════════════════════════════════
+        void SetupInventory()
+        {
+            inventory = player.GetComponent<InventorySystem>();
+            if (!props) return;
+            // Ítems agarrables: [E] "Agarrar …" los manda al inventario (primer espacio libre, en la mano).
+            if (props.backpack) props.backpack.Item = ItemId.Backpack;
+            if (props.platesStack) props.platesStack.Item = ItemId.Plates;
+            if (props.trashBag) props.trashBag.Item = ItemId.TrashBag;
+            if (props.flashlightPickup) props.flashlightPickup.Item = ItemId.Flashlight;
+            if (props.collar) props.collar.Item = ItemId.BusterCollar;
+            if (!inventory) return;
+            // Los modelos en mano son copias de los objetos de la escena.
+            var flashR = props.flashlightPickup ? props.flashlightPickup.GetComponent<Renderer>() : null;
+            var bagR = props.trashBag ? props.trashBag.GetComponent<Renderer>() : null;
+            var collarR = props.collar ? props.collar.GetComponent<Renderer>() : null;
+            if (props.flashlight && flashR) props.flashlight.FlashlightModel = () => InspectModels.CloneVisual(flashR, "Linterna");
+            if (bagR) inventory.RegisterModel(ItemId.TrashBag, () => InspectModels.CloneVisual(bagR, "Bolsa de basura"));
+            if (collarR) inventory.RegisterModel(ItemId.BusterCollar, () => InspectModels.Collar(collarR));
+        }
+
+        /// <summary>Llave junto a la linterna (sobre la mesada) y candado en la caja del breaker.</summary>
+        void CreateShedKeyAndPadlock()
+        {
+            if (ShedKey || !props || !props.flashlightPickup || !props.breaker) return;
+            var cc = player.GetComponent<CharacterController>();
+
+            // Llave: a un palmo de la linterna, apoyada en lo que haya debajo (la mesada).
+            Vector3 p = props.flashlightPickup.transform.position + new Vector3(0f, 0f, 0.32f);
+            if (Physics.Raycast(p + Vector3.up * 0.3f, Vector3.down, out var hit, 0.8f, ~0, QueryTriggerInteraction.Ignore)
+                && !hit.collider.GetComponentInParent<SimpleInteractable>())
+                p.y = hit.point.y + 0.004f;
+            var key = InspectModels.ShedKey();
+            key.transform.SetPositionAndRotation(p, Quaternion.Euler(90f, 35f, 0f));    // acostada sobre la mesada
+            var keyCol = key.AddComponent<BoxCollider>();
+            keyCol.size = new Vector3(0.16f, 0.06f, 0.12f);
+            keyCol.center = new Vector3(-0.015f, 0f, 0f);
+            if (cc) Physics.IgnoreCollision(cc, keyCol);
+            ShedKey = key.AddComponent<SimpleInteractable>();
+            ShedKey.Prompt = "Recoger llave del candado";
+            ShedKey.Item = ItemId.ShedKey;
+            ShedKey.Available = false;
+
+            // Candado: colgado del frente de la caja, sobre la palanca. Tapa el breaker hasta abrirlo.
+            var box = props.breaker.GetComponent<Collider>() ? props.breaker.GetComponent<Collider>().bounds
+                                                             : new Bounds(props.breaker.transform.position, Vector3.one * 0.3f);
+            Vector3 toPlayer = (props.shedInside ? props.shedInside.position : P) - box.center;
+            toPlayer.y = 0f;
+            Vector3 n = Mathf.Abs(toPlayer.x) > Mathf.Abs(toPlayer.z) ? new Vector3(Mathf.Sign(toPlayer.x), 0f, 0f)
+                                                                      : new Vector3(0f, 0f, Mathf.Sign(toPlayer.z));
+            var lockGo = InspectModels.Padlock();
+            lockGo.transform.position = box.center + n * (Vector3.Scale(box.extents, n).magnitude + 0.035f) + Vector3.down * 0.06f;
+            lockGo.transform.rotation = Quaternion.LookRotation(-n);
+            lockGo.transform.localScale = Vector3.one * 1.3f;
+            var lockCol = lockGo.AddComponent<BoxCollider>();
+            lockCol.size = new Vector3(0.12f, 0.14f, 0.08f);
+            if (cc) Physics.IgnoreCollision(cc, lockCol);
+            Padlock = lockGo.AddComponent<SimpleInteractable>();
+            Padlock.Prompt = "Abrir el candado con la llave";
+            Padlock.Available = false;
+        }
+
+        IEnumerator DropPadlock(Transform padlock)
+        {
+            var col = padlock.GetComponent<Collider>();
+            if (col) col.enabled = false;
+            Vector3 v = Vector3.down * 0.5f;
+            Vector3 spin = new Vector3(UnityEngine.Random.Range(-200f, 200f), 0f, UnityEngine.Random.Range(-200f, 200f));
+            float floor = padlock.position.y - 1.2f;
+            if (Physics.Raycast(padlock.position, Vector3.down, out var hit, 3f, ~0, QueryTriggerInteraction.Ignore)) floor = hit.point.y + 0.02f;
+            while (padlock.position.y > floor)
+            {
+                v += Physics.gravity * Time.deltaTime;
+                padlock.position += v * Time.deltaTime;
+                padlock.Rotate(spin * Time.deltaTime, Space.World);
+                yield return null;
+            }
+            padlock.position = new Vector3(padlock.position.x, floor, padlock.position.z);
+            OneShotAudio.Play(ProceduralAudio.Build(ProceduralAudio.Kind.Knock, 0.15f, 5), padlock.position, 0.5f);
+        }
+
+        /// <summary>Donde las huellas cambian de pezuña a pie: se pueden examinar (opcional, no frena la historia).</summary>
+        void CreateFootprintSpot()
+        {
+            if (FootprintSpot || props.trail == null || props.trail.Length <= 10 || !props.trail[10]) return;
+            Transform prints = null;
+            if (props.morningOnly != null)
+                foreach (var g in props.morningOnly) if (g && g.name.StartsWith("Huellas")) prints = g.transform;
+            if (!prints) return;
+            Vector3 c = props.trail[10].position;
+            var go = new GameObject("Examinar: huellas");
+            go.transform.position = c;
+            var col = go.AddComponent<BoxCollider>();
+            col.size = new Vector3(1.1f, 0.06f, 1.6f);
+            var cc = player.GetComponent<CharacterController>();
+            if (cc) Physics.IgnoreCollision(cc, col);
+            FootprintSpot = go.AddComponent<SimpleInteractable>();
+            FootprintSpot.Prompt = "Examinar las huellas";
+            FootprintSpot.Used += _ => StartCoroutine(InspectFootprints(prints, c));
+        }
+
+        IEnumerator InspectFootprints(Transform prints, Vector3 c)
+        {
+            FootprintSpot.Available = false;
+            InspectionView.Open(InspectModels.Footprints(prints, c, 0.8f), "Huellas", default, 0.3f);
+            yield return hud.SayAndWait("", "Pezuña. Pezuña. Y de golpe… un pie. Descalzo. Dedos largos.");
+            yield return hud.SayAndWait("", "Como si en este punto hubiera dejado de fingir.");
+            yield return InspectionView.WaitClosed();
+            FootprintSpot.Available = true;
+        }
 
         static void Show(GameObject[] objs, bool on)
         {
@@ -1225,8 +1655,9 @@ namespace SomeonesHome
             // Al activarlo con el jugador adentro, Unity dispara OnTriggerEnter igual.
             trigger.gameObject.SetActive(true);
             yield return new WaitForFixedUpdate();
-            fired |= trigger.PlayerInside;
-            while (!fired && (orElse == null || !orElse())) yield return null;
+            // Los triggers son de un solo disparo (Entered no vuelve a sonar): el de la casa se usa dos veces
+            // (regreso del río y apagón), así que también vale que el jugador esté adentro en cualquier momento.
+            while (!fired && !trigger.PlayerInside && (orElse == null || !orElse())) yield return null;
             trigger.Entered -= OnEntered;
         }
 
